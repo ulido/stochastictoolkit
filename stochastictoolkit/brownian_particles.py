@@ -118,7 +118,7 @@ class BoundaryCondition(ABC):
         to_update = self._B_reflecting_boundary(positions)
         return to_delete, to_update
 
-class EulerMaruyamaNP(NormalsRG):
+class BrownianProcess(NormalsRG):
     def __init__(self, time_step, diffusion_coefficient,
                  boundary_condition=None, seed=None, recorder=None):
         NormalsRG.__init__(self, int(1e7), default_size=(1, 2), seed=seed)
@@ -181,13 +181,13 @@ class EulerMaruyamaNP(NormalsRG):
     def positions(self):
         return self.__positions[self.__active, :]
                 
-class ParticleType(EulerMaruyamaNP):
-    def __init__(self, name, diffusion_coefficient, time_step, boundary_condition, recorder):
+class ParticleType:
+    def __init__(self, name, diffusion_coefficient, time_step, boundary_condition, recorder, process=BrownianProcess, **kwargs):
         self.sources = {}
         self.sinks = {}
-        
-        EulerMaruyamaNP.__init__(self, time_step, diffusion_coefficient=diffusion_coefficient,
-                                 boundary_condition=boundary_condition, seed=None)
+
+        self.process = process(time_step, diffusion_coefficient=diffusion_coefficient,
+                                 boundary_condition=boundary_condition, seed=None, **kwargs)
 
         self.name = name
         self.time_step = time_step
@@ -200,11 +200,19 @@ class ParticleType(EulerMaruyamaNP):
     def step(self):
         for source in self.sources.values():
             for _ in range(np.random.poisson(lam=source.injection_rate*self.time_step)):
-                self.add_particle(source.position)
-        EulerMaruyamaNP.step(self)
+                self.process.add_particle(source.position)
+        self.process.step()
 
         for sink in self.sinks.values():
-            self.remove_particles(sink.absorb_particles(self))
+            self.process.remove_particles(sink.absorb_particles(self))
+
+    @property
+    def positions(self):
+        return self.process.positions
+
+    @property
+    def time(self):
+        return self.process.time
 
 class Source:
     def __init__(self, name, particle_type, position, injection_rate, recorder):
