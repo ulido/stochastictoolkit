@@ -118,89 +118,93 @@ class BoundaryCondition(ABC):
         to_update = self._B_reflecting_boundary(positions)
         return to_delete, to_update
 
-class BrownianProcess(NormalsRG):
-    def __init__(self, time_step, diffusion_coefficient,
-                 boundary_condition=None, seed=None, recorder=None):
+class Process(ABC, NormalsRG):
+    def __init__(self, variables, time_step, seed, initial_size=100):
         NormalsRG.__init__(self, int(1e7), default_size=(1, 2), seed=seed)
-        self.__time_step = time_step
-        self.__stepsize = (2*diffusion_coefficient*time_step)**0.5
-        self.__boundary_condition = boundary_condition
 
-        self.__positions = np.empty((100, 2), dtype=float)
-        self.__active = np.zeros((self.__positions.shape[0],), dtype=bool)
-        self.__N_active = 0
-        self.__stale_indices = [i for i in range(self.__positions.shape[0])]
-        self.time = 0
-        
-        self.__logger = logger.getChild('EulerMaruyamaNP')
-        
-    #@profile
-    def step(self):
-        #self.__logger.debug('Performing EM step')
-        if self.__N_active > 0:
-            if self.__boundary_condition is None:
-                self.__positions[self.__active, :] += self.__stepsize*self._normal(size=(self.__N_active, 2))
+        self.__variables = variables
+        for var, (dim, dtype) in variables.items():
+            if dim == 1:
+                shape = (initial_size,)
             else:
-                new_pos = self.__positions[self.__active, :] + self.__stepsize*self._normal(size=(self.__N_active, 2))
-                to_delete, to_update = self.__boundary_condition(new_pos)
-                to_update_a = np.where(self.__active)[0][to_update]
-                self.__positions[to_update_a, :] = new_pos[to_update, :]
-                self.remove_particles(to_delete)
-        self.time += self.__time_step
+                shape = (initial_size, dim)
+            self.__dict__['_'+var] = np.empty(shape, dtype=dtype)
+        self._current_size = initial_size
+        self._active = np.zeros((initial_size,), dtype=bool)
+        self._N_active = 0
+        self._stale_indices = [i for i in range(self._active.shape[0])]
+
+        self.time_step = time_step
+        self.time = 0
+
+        self.__logger = logger.getChild('Process')
+
+    def step(self):
+        self._process_step()
+        self.time += self.time_step
+
+    @abstractmethod
+    def _process_step(self):
+        pass
         
-    def add_particle(self, position):
+    def add_particle(self, **kwargs):
         self.__logger.info('Adding particle...')
         try:
-            idx = heapq.heappop(self.__stale_indices)
+            idx = heapq.heappop(self._stale_indices)
             self.__logger.debug('...with index %d' % idx)
         except IndexError:
-            old_size = self.__positions.shape[0]
-            self.__positions.resize((old_size+100, 2))
-            self.__active.resize((old_size+100,))
-            self.__stale_indices.extend(i for i in range(old_size+1, old_size+100))
+            old_size = self._current_size
+            new_size = old_size + 100
+            for var, (dim, _) in self.__variables.items():
+                if dim == 1:
+                    self.__dict__['_' + var].resize((new_size,))
+                else:
+                    self.__dict__['_' + var].resize((new_size, dim))
+            self._active.resize((old_size+100,))
+            self._stale_indices.extend(i for i in range(old_size+1, new_size))
+            self._current_size = new_size
             idx = old_size
             self.__logger.debug('...with new index %d (after extending arrays)' % idx)
-        self.__positions[idx] = position
-        self.__active[idx] = True
-        self.__logger.debug("Active index is %s" % repr(self.__active))
-        self.__N_active += 1
-        
+        for var, value in kwargs.items():
+            self.__dict__['_'+var][idx] = value
+        self._active[idx] = True
+        self.__logger.debug("Active index is %s" % repr(self._active))
+        self._N_active += 1
+
     def remove_particles(self, indexes):
         if len(indexes) == 0:
             return
         self.__logger.info('Removing particles with user index %s...' % str(indexes))
-        indexes = np.where(self.__active)[0][indexes]
+        indexes = np.where(self._active)[0][indexes]
         self.__logger.debug('... which are system indexes %s' % indexes)
         for index in indexes:
-            heapq.heappush(self.__stale_indices, index)
-        self.__active[indexes] = False
-        self.__logger.debug("Active index is %s" % repr(self.__active))
-        self.__N_active -= len(indexes)
+            heapq.heappush(self._stale_indices, index)
+        self._active[indexes] = False
+        self.__logger.debug("Active index is %s" % repr(self._active))
+        self._N_active -= len(indexes)
 
     @property
-    def positions(self):
-        return self.__positions[self.__active, :]
-                
+    @abstractmethod
+    def parameters(self):
+        pass
+
 class ParticleType:
-    def __init__(self, name, diffusion_coefficient, time_step, boundary_condition, recorder, process=BrownianProcess, **kwargs):
+    def __init__(self, name, recorder, process, **kwargs):
         self.sources = {}
         self.sinks = {}
 
-        self.process = process(time_step, diffusion_coefficient=diffusion_coefficient,
-                                 boundary_condition=boundary_condition, seed=None, **kwargs)
+        self.process = process
 
         self.name = name
-        self.time_step = time_step
         recorder.register_parameter(f'particle_type_{name}', {
             'name': name,
-            'diffusion_coefficient': diffusion_coefficient,
-            'time_step': time_step,
+            'process': self.process.parameters,
         })
 
     def step(self):
         for source in self.sources.values():
-            for _ in range(np.random.poisson(lam=source.injection_rate*self.time_step)):
-                self.process.add_particle(source.position)
+            for _ in range(np.random.poisson(lam=source.injection_rate*self.process.time_step)):
+                self.process.add_particle(position=source.position)
         self.process.step()
 
         for sink in self.sinks.values():
