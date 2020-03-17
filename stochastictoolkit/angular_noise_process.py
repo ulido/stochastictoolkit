@@ -48,7 +48,7 @@ class AngularNoiseProcessWithAngularDrift(Process):
             'position_diffusion_coefficient': self.__position_diffusion_coefficient,
             'angular_diffusion_coefficient': self.__angular_diffusion_coefficient,
             'drift_strength': self.__drift_strength,
-            'drift_function': self.__drift_function,
+            'drift_function': str(self.__drift_function),
             'speed': self.__speed,
         }
         
@@ -59,7 +59,6 @@ class AngularNoiseProcessWithAngularDrift(Process):
             angles = self._angle[self._active]
             
             velocities = np.exp(1j*(angles)).view(np.float).reshape(-1, 2)
-            normals = np.vstack((-velocities[:, 1], velocities[:, 0])).T
 
             if self.__drift_function is not None:
                 drift = self.__drift_strength_dt*self.__drift_function(positions, velocities, self.time)
