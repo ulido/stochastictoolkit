@@ -6,6 +6,7 @@ import pandas as pd
 import pickle
 import itertools
 import tables
+import pathlib
 
 from abc import ABC, abstractmethod
 
@@ -21,6 +22,8 @@ class Recorder:
         self._recording_types_under_construction = {}
         self._arrays_to_save = {}
 
+        if pathlib.Path(filename).exists():
+            raise ValueError(f'File {filename} exists!')
         self._filename = filename
         
         self.__logger = logger.getChild('Recorder')
@@ -37,10 +40,22 @@ class Recorder:
         for k, v in parameters.items():
             self.register_parameter(k, v)
 
-    def record_array(self, name, array):
-        if name in self._arrays_to_save:
-            raise ValueError('Array of this name already exists!')
-        self._arrays_to_save[name] = array.copy()
+    def record_array(self, name, array, index_value=None):
+        # Saving arrays is done instantaneously rather than waiting until save is called.
+        # Otherwise we might run into memory issues.
+        with tables.open_file(self._filename, mode='a') as h5file:
+            if name not in h5file.root:
+                data = h5file.create_earray(f'/{name}', 'data', obj=array[np.newaxis], createparents=True)
+                print(data)
+                if index_value is not None:
+                    index = h5file.create_earray(f'/{name}', 'index', obj=np.array(index_value)[np.newaxis])
+            else:
+                group = h5file.get_node(f'/{name}')
+                if 'index' in group:
+                    if index_value is None:
+                        raise ValueError('Index present but no index value specified!')
+                    group['index'].append(np.array(index_value)[np.newaxis])
+                    group['data'].append(array[np.newaxis])
             
     def new_recording_type(self, name, fields):
         self.__logger.info(f"Registering recording type {name}")
@@ -61,23 +76,18 @@ class Recorder:
         self.__logger.info(f"Recording event of type {type_name}")
         rows.append(rec_type(**items))
 
-    def save(self, filename=None):
-        if filename is None:
-            filename = self._filename
+    def save(self):
         if not self._frozen:
             self._build_recording_types()
         df = pd.DataFrame([{'parameter': k,
                             'value': str(repr(v)),
                             'pickled_value': str(pickle.dumps(v))}
                            for k, v in self._parameters.items()])
-        df.to_hdf(filename, mode='w', key='parameters')
+        df.to_hdf(self._filename, mode='a', key='parameters')
         for type_name, (_, rows) in self._recording_types.items():
             self.__logger.info(f"Saving {len(rows)} recorded events for type {type_name}")
             df = pd.DataFrame(rows)
-            df.to_hdf(filename, mode='a', key=type_name)
-        with tables.open_file(self._filename, mode='a') as h5file:
-            for name, array in self._arrays_to_save.items():
-                h5file.create_array('/', name, array)
+            df.to_hdf(self._filename, mode='a', key=type_name)
 
 class NormalsRG:
     def __init__(self, N_normals, default_size=(1,), seed=None, recorder=None):

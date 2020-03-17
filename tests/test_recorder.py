@@ -13,15 +13,20 @@ def get_filename_from_tmppath(path, fname):
 def test_array(tmp_path):
     fname = get_filename_from_tmppath(tmp_path, 'arraytest.h5')
     recorder = Recorder(fname)
-    array = np.random.uniform(size=(10, 10))
-    recorder.record_array('testarray', array)
+    times = np.arange(10)
+    array = np.random.uniform(size=(times.shape[0], 10, 10))
+    for i, time in enumerate(times):
+        recorder.record_array('testarray', array[i], time)
     recorder.save()
 
     with tables.open_file(fname, 'r') as h5file:
-        arrayobj = h5file.get_node('/', 'testarray')
+        arrayobj = h5file.get_node('/testarray', 'data')
+        indexobj = h5file.get_node('/testarray', 'index')
         read_array = arrayobj[:]
+        read_times = indexobj[:]
 
     assert(abs(array - read_array).sum() < 1e-8)
+    assert(abs(times - read_times).sum() < 1e-8)
 
 def test_parameters(tmp_path):
     fname = get_filename_from_tmppath(tmp_path, 'arraytest.h5')
