@@ -5,6 +5,7 @@ import randomgen
 import pandas as pd
 import pickle
 import itertools
+import tables
 
 from abc import ABC, abstractmethod
 
@@ -18,6 +19,7 @@ class Recorder:
         self._frozen = False
         self._recording_types = {}
         self._recording_types_under_construction = {}
+        self._arrays_to_save = {}
 
         self._filename = filename
         
@@ -35,6 +37,11 @@ class Recorder:
         for k, v in parameters.items():
             self.register_parameter(k, v)
 
+    def record_array(self, name, array):
+        if name in self._arrays_to_save:
+            raise ValueError('Array of this name already exists!')
+        self._arrays_to_save[name] = array.copy()
+            
     def new_recording_type(self, name, fields):
         self.__logger.info(f"Registering recording type {name}")
         if self._frozen:
@@ -68,6 +75,9 @@ class Recorder:
             self.__logger.info(f"Saving {len(rows)} recorded events for type {type_name}")
             df = pd.DataFrame(rows)
             df.to_hdf(filename, mode='a', key=type_name)
+        with tables.open_file(self._filename, mode='a') as h5file:
+            for name, array in self._arrays_to_save.items():
+                h5file.create_array('/', name, array)
 
 class NormalsRG:
     def __init__(self, N_normals, default_size=(1,), seed=None, recorder=None):

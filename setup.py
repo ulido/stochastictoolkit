@@ -27,6 +27,7 @@ setup(name='stochastictoolkit',
           'tqdm',
           'pandas',
           'shapely',
+          'tables'
       ],
       test_suite='pytest',
       zip_safe=False)
