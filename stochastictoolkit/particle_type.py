@@ -1,5 +1,4 @@
 import numpy as np
-from tqdm import tqdm_notebook as tqdm
 import heapq
 from collections import namedtuple
 import randomgen
@@ -188,8 +187,12 @@ class Process(ABC, NormalsRG):
     def parameters(self):
         pass
 
+    @property
+    def particle_ids(self):
+        return self._particle_ids[self._active]
+
 class ParticleType:
-    def __init__(self, name, recorder, process, **kwargs):
+    def __init__(self, name, recorder, process):
         self.sources = {}
         self.sinks = {}
 

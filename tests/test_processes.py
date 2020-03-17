@@ -1,6 +1,4 @@
 import numpy as np
-import pandas as pd
-from tqdm.auto import tqdm
 
 from stochastictoolkit.particle_type import ParticleType, Source, Recorder, BoundaryCondition
 from stochastictoolkit.brownian_process import BrownianProcess
@@ -32,12 +30,10 @@ def test_brownianprocess():
     particles = ParticleType('A', recorder, process)
     source = Source('Source', particles, np.zeros((2,)), inj_rate, recorder)
 
-    with tqdm(total=end) as pbar:
-        while particles.time < end:
-            particles.step()
-            pbar.update(particles.time - pbar.n)
+    while particles.time < end:
+        particles.step()
 
-    particles.positions
+    list(zip(particles.process.particle_ids, particles.positions))
     return True
 
 def test_angularnoiseprocess():
@@ -74,10 +70,8 @@ def test_angularnoiseprocess():
     particles = ParticleType('A', recorder, process)
     source = Source('Colony', particles, np.zeros((2,)), inj_rate, recorder)
 
-    with tqdm(total=end) as pbar:
-        while particles.time < end:
-            particles.step()
-            pbar.update(particles.time - pbar.n)
+    while particles.time < end:
+        particles.step()
 
     particles.positions
     particles.process.velocities
