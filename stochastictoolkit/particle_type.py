@@ -46,7 +46,6 @@ class Recorder:
         with tables.open_file(self._filename, mode='a') as h5file:
             if name not in h5file.root:
                 data = h5file.create_earray(f'/{name}', 'data', obj=array[np.newaxis], createparents=True)
-                print(data)
                 if index_value is not None:
                     index = h5file.create_earray(f'/{name}', 'index', obj=np.array(index_value)[np.newaxis])
             else:
