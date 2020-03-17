@@ -4,6 +4,7 @@ from collections import namedtuple
 import randomgen
 import pandas as pd
 import pickle
+import itertools
 
 from abc import ABC, abstractmethod
 
@@ -130,9 +131,12 @@ class Process(ABC, NormalsRG):
             self.__dict__['_'+var] = np.empty(shape, dtype=dtype)
         self._current_size = initial_size
         self._active = np.zeros((initial_size,), dtype=bool)
+        self._particle_ids = np.empty((initial_size,), dtype=int)
         self._N_active = 0
         self._stale_indices = [i for i in range(self._active.shape[0])]
 
+        self._particle_counter = itertools.count()
+        
         self.time_step = time_step
         self.time = 0
 
@@ -159,7 +163,8 @@ class Process(ABC, NormalsRG):
                     self.__dict__['_' + var].resize((new_size,))
                 else:
                     self.__dict__['_' + var].resize((new_size, dim))
-            self._active.resize((old_size+100,))
+            self._active.resize((new_size,))
+            self._particle_ids.resize((new_size,))
             self._stale_indices.extend(i for i in range(old_size+1, new_size))
             self._current_size = new_size
             idx = old_size
@@ -167,6 +172,7 @@ class Process(ABC, NormalsRG):
         for var, value in kwargs.items():
             self.__dict__['_'+var][idx] = value
         self._active[idx] = True
+        self._particle_ids[idx] = next(self._particle_counter)
         self.__logger.debug("Active index is %s" % repr(self._active))
         self._N_active += 1
 
