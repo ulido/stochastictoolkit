@@ -44,6 +44,8 @@ class CoordinateLattice(np.ndarray):
 
 class DiffusionPDESolver:
     def __init__(self,
+                 name,
+                 recorder,
                  lattice_size,
                  diffusion_coefficient,
                  source_strength,
@@ -51,6 +53,9 @@ class DiffusionPDESolver:
                  decay_rate,
                  dx,
                  max_dt=None):
+        self.name = name
+        self.recorder = recorder
+        
         lattice_size = np.array(lattice_size)
         self._lattice = CoordinateLattice(lattice_size, dx=dx)
         self._lattice[:] = 0.
@@ -74,6 +79,8 @@ class DiffusionPDESolver:
             else:
                 raise ValueError('Cannot calculate a time stap and max_dt was not specified.')
 
+        self.recorder.register_parameter(f'diffusion_pde_{name}', self.parameters)
+
         self._r = self._diffusion_coefficient*self._dt/self._dx**2
         self._m = (1 - 4*self._r - self._decay_rate*self._dt)
         self._source_strength_dt = source_strength*self._dt
@@ -96,10 +103,13 @@ class DiffusionPDESolver:
     @property
     def parameters(self):
         return {
+            'name': self.name,
             'diffusion_coefficient': self._diffusion_coefficient,
             'time_step': self._dt,
             'dx': self._dx,
             'source_strength': self._source_strength,
             'source_positions': str(self._source_positions),
             'decay_rate': self._decay_rate,
+            'lattice_size': self._lattice.shape,
+            'lattice_constant': self._dx,
         }
