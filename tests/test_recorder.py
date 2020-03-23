@@ -1,6 +1,6 @@
 import numpy as np
 
-from stochastictoolkit.particle_type import Recorder
+from stochastictoolkit.recorder import Recorder
 
 import tables
 import pandas as pd

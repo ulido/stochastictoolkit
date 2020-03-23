@@ -1,6 +1,6 @@
 import numpy as np
 
-from stochastictoolkit.particle_type import Recorder
+from stochastictoolkit.recorder import Recorder
 from stochastictoolkit.PDE import DiffusionPDESolver
 
 def get_filename_from_tmppath(path, fname):

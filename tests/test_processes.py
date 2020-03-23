@@ -1,6 +1,7 @@
 import numpy as np
 
-from stochastictoolkit.particle_type import ParticleType, Source, Recorder, BoundaryCondition
+from stochastictoolkit.particle_type import ParticleType, Source, BoundaryCondition
+from stochastictoolkit.recorder import Recorder
 from stochastictoolkit.brownian_process import BrownianProcess
 from stochastictoolkit.angular_noise_process import AngularNoiseProcessWithAngularDrift
 
