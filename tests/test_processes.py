@@ -5,8 +5,49 @@ from stochastictoolkit.recorder import Recorder
 from stochastictoolkit.brownian_process import BrownianProcess
 from stochastictoolkit.angular_noise_process import AngularNoiseProcessWithAngularDrift
 
-def test_brownianprocess():
-    Dx=0.0001
+from pytest import approx
+
+def test_brownianprocess_MSD():
+    Dx=0.001
+    dt=0.01
+    end=100
+
+    class Boundaries(BoundaryCondition):
+        def __init__(self):
+            super().__init__()
+            self._empty = np.empty((0, 2), dtype=int)
+        
+        def _B_absorbing_boundary(self, positions):
+            return np.zeros((positions.shape[0],), dtype=bool)
+    
+        def _B_reflecting_boundary(self, positions):
+            return np.ones((positions.shape[0],), dtype=bool)
+
+    recorder = Recorder('test.h5')
+    process = BrownianProcess(
+        time_step=dt,
+        boundary_condition=Boundaries(),
+        diffusion_coefficient=Dx)
+    particles = ParticleType('A', recorder, process)
+    z = np.zeros((2,))
+    for i in range(10000):
+        process.add_particle(position=z)
+
+    D_measurements = []
+    while particles.time < end:
+        particles.step()
+        D_measurements.append((particles.positions**2).mean()/(2*particles.time))
+
+    # Confirm that the measured diffusion coefficient is the same as the
+    # input one, within the 99% confidence interval (via the standard dev).
+    D_mean = np.mean(D_measurements)
+    D_std = np.std(D_measurements)
+    assert(D_mean == approx(D_mean, abs=2.576*D_std))
+
+    return True
+
+def test_brownianprocess_source():
+    Dx=0.001
     dt=0.01
     end=10
     inj_rate=10
@@ -17,8 +58,7 @@ def test_brownianprocess():
             self._empty = np.empty((0, 2), dtype=int)
         
         def _B_absorbing_boundary(self, positions):
-            distance = np.linalg.norm(positions, axis=1)
-            return distance >= 0.999999999
+            return np.zeros((positions.shape[0],), dtype=bool)
     
         def _B_reflecting_boundary(self, positions):
             return np.ones((positions.shape[0],), dtype=bool)
@@ -34,18 +74,20 @@ def test_brownianprocess():
     while particles.time < end:
         particles.step()
 
+    N = particles.positions.shape[0]
+    assert(N == approx(inj_rate*end, abs=2.56*inj_rate))
+
+    # Just make sure that we can get particle IDs
     list(zip(particles.process.particle_ids, particles.positions))
+    
     return True
 
-def test_angularnoiseprocess():
-    Dx=0.0001
-    Dtheta=0.00001
+def test_angularnoiseprocess_spatial_MSD():
+    Dx=0.001
+    Dtheta=0.
+    speed=0.
     dt=0.01
-    speed=0.022
-    end=10
-    inj_rate=10
-
-    drift = lambda x, v, t: -np.arctan2(x[:, 1], x[:, 0])
+    end=100
 
     class Boundaries(BoundaryCondition):
         def __init__(self):
@@ -53,13 +95,13 @@ def test_angularnoiseprocess():
             self._empty = np.empty((0, 2), dtype=int)
         
         def _B_absorbing_boundary(self, positions):
-            distance = np.linalg.norm(positions, axis=1)
-            return distance >= 0.999999999 #self._empty
+            return np.zeros((positions.shape[0],), dtype=bool)
     
         def _B_reflecting_boundary(self, positions):
-            return np.ones((positions.shape[0],), dtype=bool) # distance < 1
+            return np.ones((positions.shape[0],), dtype=bool)
 
     recorder = Recorder('test.h5')
+    drift = lambda x, v, t: -np.arctan2(x[:, 1], x[:, 0])
     process = AngularNoiseProcessWithAngularDrift(
         time_step=dt,
         boundary_condition=Boundaries(),
@@ -69,11 +111,67 @@ def test_angularnoiseprocess():
         speed=speed,
         drift_function=drift)
     particles = ParticleType('A', recorder, process)
-    source = Source('Colony', particles, np.zeros((2,)), inj_rate, recorder)
+    z = np.zeros((2,))
+    for i in range(10000):
+        process.add_particle(position=z)
 
+    D_measurements = []
     while particles.time < end:
         particles.step()
+        D_measurements.append((particles.positions**2).mean()/(2*particles.time))
 
-    particles.positions
-    particles.process.velocities
+    # Confirm that the measured diffusion coefficient is the same as the
+    # input one, within the 99% confidence interval (via the standard dev).
+    D_mean = np.mean(D_measurements)
+    D_std = np.std(D_measurements)
+    assert(D_mean == approx(D_mean, abs=2.576*D_std))
+
+    return True
+
+def test_angularnoiseprocess_angle_MSD():
+    Dx=0.
+    Dtheta=0.01
+    speed=1
+    dt=0.01
+    end=10
+
+    class Boundaries(BoundaryCondition):
+        def __init__(self):
+            super().__init__()
+            self._empty = np.empty((0, 2), dtype=int)
+
+        def _B_absorbing_boundary(self, positions):
+            return np.zeros((positions.shape[0],), dtype=bool)
+
+        def _B_reflecting_boundary(self, positions):
+            return np.ones((positions.shape[0],), dtype=bool)
+
+    recorder = Recorder('test.h5')
+    drift = lambda x, v, t: -np.arctan2(x[:, 1], x[:, 0])
+    process = AngularNoiseProcessWithAngularDrift(
+        time_step=dt,
+        boundary_condition=Boundaries(),
+        angular_diffusion_coefficient=Dtheta,
+        position_diffusion_coefficient=Dx,
+        drift_strength=0,
+        speed=speed,
+        drift_function=drift)
+    particles = ParticleType('A', recorder, process)
+    z = np.zeros((2,))
+    for i in range(10000):
+        process.add_particle(position=z)
+
+    D_measurements = []
+    v = process.velocities
+    while particles.time < end:
+        particles.step()
+        angles = np.arccos((v*process.velocities).sum(axis=1))
+        D_measurements.append(((angles)**2).mean()/(2*particles.time))
+
+    # Confirm that the measured diffusion coefficient is the same as the
+    # input one, within the 99% confidence interval (via the standard dev).
+    D_mean = np.mean(D_measurements)
+    D_std = np.std(D_measurements)
+    assert(D_mean == approx(D_mean, abs=2.576*D_std))
+
     return True
