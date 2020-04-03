@@ -54,20 +54,21 @@ class BoundaryCondition(ABC):
         to_update = self._B_reflecting_boundary(positions)
         return to_delete, to_update
 
+INITIAL_SIZE = 100
 class Process(ABC, NormalsRG):
-    def __init__(self, variables, time_step, seed, initial_size=100):
+    def __init__(self, variables, time_step, seed):
         NormalsRG.__init__(self, int(1e7), default_size=(1, 2), seed=seed)
 
         self.__variables = variables
         for var, (dim, dtype) in variables.items():
             if dim == 1:
-                shape = (initial_size,)
+                shape = (INITIAL_SIZE,)
             else:
-                shape = (initial_size, dim)
+                shape = (INITIAL_SIZE, dim)
             self.__dict__['_'+var] = np.empty(shape, dtype=dtype)
-        self._current_size = initial_size
-        self._active = np.zeros((initial_size,), dtype=bool)
-        self._particle_ids = np.empty((initial_size,), dtype=int)
+        self._current_size = INITIAL_SIZE
+        self._active = np.zeros((INITIAL_SIZE,), dtype=bool)
+        self._particle_ids = np.empty((INITIAL_SIZE,), dtype=int)
         self._N_active = 0
         self._stale_indices = [i for i in range(self._active.shape[0])]
 
