@@ -27,7 +27,8 @@ setup(name='stochastictoolkit',
           'tqdm',
           'pandas',
           'shapely',
-          'tables'
+          'tables',
+          'quadtree @ https://github.com/ulido/quadtree/tarball/master',
       ],
       test_suite='pytest',
       zip_safe=False)

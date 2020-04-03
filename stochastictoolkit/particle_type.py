@@ -3,7 +3,7 @@ import heapq
 import randomgen
 import itertools
 from abc import ABC, abstractmethod
-
+from quadtree import QuadTree
 import logging
 
 logger = logging.getLogger(__name__)
@@ -56,7 +56,9 @@ class BoundaryCondition(ABC):
 
 INITIAL_SIZE = 100
 class Process(ABC, NormalsRG):
-    def __init__(self, variables, time_step, seed):
+    def __init__(self, variables, time_step, seed,
+                 force_function=None, force_strength=0,
+                 force_cutoff_distance=0):
         NormalsRG.__init__(self, int(1e7), default_size=(1, 2), seed=seed)
 
         self.__variables = variables
@@ -72,6 +74,14 @@ class Process(ABC, NormalsRG):
         self._N_active = 0
         self._stale_indices = [i for i in range(self._active.shape[0])]
 
+        if (force_strength != 0) and (force_function is None):
+            raise ValueError("Force strength is nonzero but no force function specified!")
+        if (force_strength != 0) and (force_cutoff_distance <= 0):
+            raise ValueError("Force strength is nonzero but cutoff distance is invalid!")
+        self._force_cutoff_distance = force_cutoff_distance
+        self._force_strength_dt = force_strength*time_step
+        self._force_function = force_function
+        
         self._particle_counter = itertools.count()
         
         self.time_step = time_step
@@ -86,7 +96,20 @@ class Process(ABC, NormalsRG):
     @abstractmethod
     def _process_step(self):
         pass
-        
+
+    def _pairwise_force_term(self, positions):
+        if self._force_strength_dt == 0:
+            return 0
+        mi, ma = positions.min(), positions.max()
+        ce = (ma+mi)/2
+        hd = max((ma-mi)/1.99, 1e-5)
+        qt = QuadTree([ce, ce], hd)
+        qt.insert_points(positions)
+        forces = np.empty_like(positions)
+        for i, q in enumerate(qt.query_self(self._force_cutoff_distance)):
+            forces[i] = self._force_function(q-positions[i][np.newaxis]).sum(axis=0)
+        return self._force_strength_dt*forces
+
     def add_particle(self, **kwargs):
         self.__logger.info('Adding particle...')
         try:
@@ -128,7 +151,11 @@ class Process(ABC, NormalsRG):
     @property
     @abstractmethod
     def parameters(self):
-        return {}
+        return {
+            'force_strength': self._force_strength_dt/self.time_step,
+            'force_function': str(self._force_function),
+            'force_cutoff_distance': self._force_cutoff_distance,
+        }
 
     @property
     def particle_ids(self):

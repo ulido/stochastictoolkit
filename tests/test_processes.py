@@ -46,6 +46,54 @@ def test_brownianprocess_MSD():
 
     return True
 
+def test_brownianprocess_drift():
+    Dx=0
+    dt=0.001
+    end=1
+
+    class Boundaries(BoundaryCondition):
+        def __init__(self):
+            super().__init__()
+            self._empty = np.empty((0, 2), dtype=int)
+
+        def _B_absorbing_boundary(self, positions):
+            return np.zeros((positions.shape[0],), dtype=bool)
+
+        def _B_reflecting_boundary(self, positions):
+            return np.ones((positions.shape[0],), dtype=bool)
+
+    recorder = Recorder('test.h5')
+    def force_function(x):
+        return -x/(x**2).sum(axis=1)**(1.5)
+    process = BrownianProcess(
+        time_step=dt,
+        boundary_condition=Boundaries(),
+        diffusion_coefficient=Dx,
+        force_strength=1,
+        force_function=force_function,
+        force_cutoff_distance=10)
+    particles = ParticleType('A', recorder, process)
+    z = np.zeros((2,))
+    process.add_particle(position=np.array([-0.5, 0]))
+    process.add_particle(position=np.array([0.5, 0]))
+
+    pos = []
+    time = []
+    while particles.time < end:
+        pos.append(abs(np.diff(particles.positions[:, 0]))[0])
+        time.append(particles.time)
+        particles.step()
+    time = np.array(time)
+    pos = np.array(pos)
+        
+    real_data = abs
+    
+    # Analytical result: r(t)=(6t+r(0))^{1/3}
+    rpos = (6*time+1)**(1/3)
+    maxerr = abs(pos - rpos).max()
+    assert(maxerr < 1e-3)
+    return True
+
 def test_brownianprocess_source():
     Dx=0.001
     dt=0.01

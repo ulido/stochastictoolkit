@@ -16,12 +16,18 @@ class AngularNoiseProcessWithAngularDrift(Process):
                  drift_strength,
                  speed,
                  drift_function=None,
+                 force_strength=0.,
+                 force_function=None,
+                 force_cutoff_distance=0,
                  seed=None):
         variables = {
             'position': (2, float),
             'angle': (1, float),
         }
-        super().__init__(variables, time_step, seed)
+        super().__init__(variables, time_step, seed,
+                         force_strength=force_strength,
+                         force_function=force_function,
+                         force_cutoff_distance=force_cutoff_distance)
 
         self.__time_step = time_step
         self.__angular_diffusion_coefficient = angular_diffusion_coefficient
@@ -71,7 +77,9 @@ class AngularNoiseProcessWithAngularDrift(Process):
             diffusion = self.__angular_stepsize*self._normal(size=(self._N_active,))
             self._angle[self._active] += drift + diffusion
             
-            new_pos = positions + velocities*self.__speeddt + self.__pos_stepsize*self._normal(size=(self._N_active, 2))
+            pos_drift = self._pairwise_force_term(positions) + velocities*self.__speeddt
+            pos_diffusion = self.__pos_stepsize*self._normal(size=(self._N_active, 2))
+            new_pos = positions + pos_drift + pos_diffusion
             to_delete, to_update = self.__boundary_condition(new_pos)
             to_update_a = np.where(self._active)[0][to_update]
             self._position[to_update_a, :] = new_pos[to_update, :]
