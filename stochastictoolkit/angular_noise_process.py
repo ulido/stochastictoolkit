@@ -42,7 +42,8 @@ class AngularNoiseProcessWithAngularDrift(Process):
 
     @property
     def parameters(self):
-        return {
+        ret = super().parameters
+        ret.update({
             'process': 'AngularNoiseProcessWithAngularDrift',
             'time_step': self.__time_step,
             'position_diffusion_coefficient': self.__position_diffusion_coefficient,
@@ -50,7 +51,8 @@ class AngularNoiseProcessWithAngularDrift(Process):
             'drift_strength': self.__drift_strength,
             'drift_function': str(self.__drift_function),
             'speed': self.__speed,
-        }
+        })
+        return ret
         
     def _process_step(self):
         #self.__logger.debug('Performing EM step')

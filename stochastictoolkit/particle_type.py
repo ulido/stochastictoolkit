@@ -128,7 +128,7 @@ class Process(ABC, NormalsRG):
     @property
     @abstractmethod
     def parameters(self):
-        pass
+        return {}
 
     @property
     def particle_ids(self):

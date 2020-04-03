@@ -20,11 +20,13 @@ class BrownianProcess(Process):
 
     @property
     def parameters(self):
-        return {
+        ret = super().parameters
+        ret.update({
             'process': 'BrownianProcess',
             'time_step': self.time_step,
             'diffusion_coefficient': self.__diffusion_coefficient,
-        }
+        })
+        return ret
     
     def _process_step(self):
         if self._N_active > 0:
