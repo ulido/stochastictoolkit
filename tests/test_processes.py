@@ -1,6 +1,6 @@
 import numpy as np
 
-from stochastictoolkit.particle_type import ParticleType, Source, BoundaryCondition
+from stochastictoolkit.particle_type import ParticleType, PointSource, BoundaryCondition
 from stochastictoolkit.recorder import Recorder
 from stochastictoolkit.brownian_process import BrownianProcess
 from stochastictoolkit.angular_noise_process import AngularNoiseProcessWithAngularDrift
@@ -116,8 +116,8 @@ def test_brownianprocess_source():
         time_step=dt,
         boundary_condition=Boundaries(),
         diffusion_coefficient=Dx)
-    particles = ParticleType('A', recorder, process)
-    source = Source('Source', particles, np.zeros((2,)), inj_rate, recorder)
+    source = PointSource('Source', np.zeros((2,)), inj_rate)
+    particles = ParticleType('A', recorder, process, sources=[source])
 
     while particles.time < end:
         particles.step()
