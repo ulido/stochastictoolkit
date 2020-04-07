@@ -11,5 +11,5 @@ envlist = py38
 deps =
     pytest
 commands =
-    pytest
+    pytest {posargs}
 """
