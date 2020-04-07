@@ -76,8 +76,10 @@ class AngularNoiseProcessWithAngularDrift(Process):
         pos_diffusion = self.__pos_stepsize*self._normal(size=(self._N_active, 2))
         return positions + pos_drift + pos_diffusion
 
-    def add_particle(self, position):
-        super().add_particle(position=position, angle=2*np.pi*np.random.uniform())
+    def add_particle(self, position, angle=None):
+        if angle is None:
+            angle = 2*np.pi*np.random.uniform()
+        super().add_particle(position=position, angle=angle)
         
     @property
     def positions(self):
