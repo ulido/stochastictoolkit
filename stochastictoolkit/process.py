@@ -51,15 +51,32 @@ class Process(ABC, NormalsRG):
         if self._N_active > 0:
             new_positions = self._process_step()
 
-            to_delete, to_update = self._boundary_condition(new_positions)
-            to_update_a = np.where(self._active)[0][to_update]
-            self._position[to_update_a, :] = new_positions[to_update, :]
-            self.remove_particles(to_delete)
+            to_delete, to_reflect = self._boundary_condition(new_positions)
+            if (to_reflect is not None) and to_reflect.any():
+                old_positions = self._position[self._active, :][to_reflect, :]
+                aidx = np.where(self._active)[0]
+                to_reflect_a = aidx[to_reflect]
+                not_to_reflect_a = aidx[~to_reflect]
+                self._position[not_to_reflect_a, :] = new_positions[~to_reflect, :]
+                crossing_points, tangent_vectors = (
+                    self._boundary_condition.get_crossing_and_tangent(self._position[to_reflect_a, :],
+                                                                      new_positions[to_reflect, :]))
+                self._reflect_particles(to_reflect_a, new_positions[to_reflect, :],
+                                        crossing_points, tangent_vectors)
+            else:
+                self._position[self._active, :] = new_positions
+
+            if to_delete is not None:
+                self.remove_particles(to_delete)
         
         self.time += self.time_step
 
     @abstractmethod
     def _process_step(self):
+        pass
+
+    @abstractmethod
+    def _reflect_particles(self, to_reflect_a, new_positions, crossing_points, tangent_vectors):
         pass
 
     def _pairwise_force_term(self, positions):

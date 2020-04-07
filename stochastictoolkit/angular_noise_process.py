@@ -76,6 +76,13 @@ class AngularNoiseProcessWithAngularDrift(Process):
         pos_diffusion = self.__pos_stepsize*self._normal(size=(self._N_active, 2))
         return positions + pos_drift + pos_diffusion
 
+    def _reflect_particles(self, to_reflect_a, new_positions, crossing_points, tangent_vectors):
+        d = new_positions - crossing_points
+        dotp = (d*tangent_vectors).sum(axis=1)
+        theta = np.arccos(dotp/np.linalg.norm(d, axis=1))
+        self._position[to_reflect_a] = crossing_points-d+2*dotp[:, np.newaxis]*tangent_vectors
+        self._angle[to_reflect_a] += 2*theta
+
     def add_particle(self, position, angle=None):
         if angle is None:
             angle = 2*np.pi*np.random.uniform()

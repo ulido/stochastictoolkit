@@ -9,18 +9,43 @@ class BoundaryCondition(ABC):
         self.__logger = logger.getChild('BoundaryCondition')
     
     @abstractmethod
-    def _B_absorbing_boundary(self, positions):
+    def absorbing_boundary(self, positions):
+        # Return a bool array - true for particles that are absorbed, false else
         pass
         
     @abstractmethod
-    def _B_reflecting_boundary(self, positions):
+    def reflecting_boundary(self, positions):
+        # Return a bool array - true for particles that need to be reflected, false else
         pass
+
+    @abstractmethod
+    def get_crossing_and_tangent(self, positions, new_positions):
+        # Return the crossing point and the tangent vector
+        pass
+
+    @abstractmethod
+    def __str__(self):
+        return "Boundary Condition base class (abstract)"
 
     def __call__(self, positions):
         self.__logger.debug('Checking boundary conditions')
-        to_delete = self._B_absorbing_boundary(positions)
-        to_update = self._B_reflecting_boundary(positions)
-        return to_delete, to_update
+        to_delete = self.absorbing_boundary(positions)
+        to_reflect = self.reflecting_boundary(positions)
+        return to_delete, to_reflect
+
+class NoBoundaries(BoundaryCondition):
+    def absorbing_boundary(self, positions):
+        return None
+    
+    def reflecting_boundary(self, positions):
+        return None
+    
+    def get_crossing_and_tangent(self, positions, new_positions):
+        # There are no reflective boundaries...
+        raise NotImplementedError()
+
+    def __str__(self):
+        return "No boundary condition"
 
 class ParticleType:
     def __init__(self, name, recorder, process, sources=[], sinks=[]):

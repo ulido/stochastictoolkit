@@ -1,32 +1,61 @@
 import numpy as np
 
-from stochastictoolkit.particle_type import ParticleType, PointSource, BoundaryCondition
+from stochastictoolkit.particle_type import ParticleType, PointSource, BoundaryCondition, NoBoundaries
 from stochastictoolkit.recorder import Recorder
 from stochastictoolkit.brownian_process import BrownianProcess
 from stochastictoolkit.angular_noise_process import AngularNoiseProcessWithAngularDrift
 
 from pytest import approx
 
+def test_angularnoiseprocess_reflection():
+    class Boundaries(BoundaryCondition):
+        def __init__(self):
+            super().__init__()
+            self.tangent_vector = np.array([0, 1])[np.newaxis]
+            
+        def absorbing_boundary(self, positions):
+            return None
+
+        def reflecting_boundary(self, positions):
+            return positions[:, 0] > 1
+
+        def get_crossing_and_tangent(self, positions, new_positions):
+            x0 = positions[:, 0]
+            x1 = new_positions[:, 0]
+            
+            d = new_positions - positions
+            return positions + d * ((1.0 - positions[:, 0]) / d[:, 0])[:, np.newaxis], self.tangent_vector
+            
+    recorder = Recorder('test.h5')
+    process = AngularNoiseProcessWithAngularDrift(
+        time_step=0.01,
+        boundary_condition=Boundaries(),
+        angular_diffusion_coefficient=0,
+        position_diffusion_coefficient=0,
+        drift_strength=0,
+        speed=1,
+        drift_function=None)
+    particles = ParticleType('A', recorder, process)
+    z = np.zeros((2,))
+    angles = np.linspace(-np.pi/4, np.pi/4, 20)
+    for a in angles:
+        process.add_particle(position=z, angle=a)
+
+    while particles.time < 2*2**0.5:
+        particles.step()
+
+    expected = ([[2,0]] - particles.time*np.exp(1j*angles)[np.newaxis].view(float).reshape(-1, 2))*[[1, -1]]
+    assert(process.positions == approx(expected))
+    
 def test_brownianprocess_MSD():
     Dx=0.001
     dt=0.01
     end=100
 
-    class Boundaries(BoundaryCondition):
-        def __init__(self):
-            super().__init__()
-            self._empty = np.empty((0, 2), dtype=int)
-        
-        def _B_absorbing_boundary(self, positions):
-            return np.zeros((positions.shape[0],), dtype=bool)
-    
-        def _B_reflecting_boundary(self, positions):
-            return np.ones((positions.shape[0],), dtype=bool)
-
     recorder = Recorder('test.h5')
     process = BrownianProcess(
         time_step=dt,
-        boundary_condition=Boundaries(),
+        boundary_condition=NoBoundaries(),
         diffusion_coefficient=Dx)
     particles = ParticleType('A', recorder, process)
     z = np.zeros((2,))
@@ -51,23 +80,12 @@ def test_brownianprocess_drift():
     dt=0.001
     end=1
 
-    class Boundaries(BoundaryCondition):
-        def __init__(self):
-            super().__init__()
-            self._empty = np.empty((0, 2), dtype=int)
-
-        def _B_absorbing_boundary(self, positions):
-            return np.zeros((positions.shape[0],), dtype=bool)
-
-        def _B_reflecting_boundary(self, positions):
-            return np.ones((positions.shape[0],), dtype=bool)
-
     recorder = Recorder('test.h5')
     def force_function(x):
         return -x/(x**2).sum(axis=1)**(1.5)
     process = BrownianProcess(
         time_step=dt,
-        boundary_condition=Boundaries(),
+        boundary_condition=NoBoundaries(),
         diffusion_coefficient=Dx,
         force_strength=1,
         force_function=force_function,
@@ -100,21 +118,10 @@ def test_brownianprocess_source():
     end=10
     inj_rate=10
 
-    class Boundaries(BoundaryCondition):
-        def __init__(self):
-            super().__init__()
-            self._empty = np.empty((0, 2), dtype=int)
-        
-        def _B_absorbing_boundary(self, positions):
-            return np.zeros((positions.shape[0],), dtype=bool)
-    
-        def _B_reflecting_boundary(self, positions):
-            return np.ones((positions.shape[0],), dtype=bool)
-
     recorder = Recorder('test.h5')
     process = BrownianProcess(
         time_step=dt,
-        boundary_condition=Boundaries(),
+        boundary_condition=NoBoundaries(),
         diffusion_coefficient=Dx)
     source = PointSource('Source', np.zeros((2,)), inj_rate)
     particles = ParticleType('A', recorder, process, sources=[source])
@@ -137,22 +144,11 @@ def test_angularnoiseprocess_spatial_MSD():
     dt=0.01
     end=100
 
-    class Boundaries(BoundaryCondition):
-        def __init__(self):
-            super().__init__()
-            self._empty = np.empty((0, 2), dtype=int)
-        
-        def _B_absorbing_boundary(self, positions):
-            return np.zeros((positions.shape[0],), dtype=bool)
-    
-        def _B_reflecting_boundary(self, positions):
-            return np.ones((positions.shape[0],), dtype=bool)
-
     recorder = Recorder('test.h5')
     drift = lambda x, v, t: -np.arctan2(x[:, 1], x[:, 0])
     process = AngularNoiseProcessWithAngularDrift(
         time_step=dt,
-        boundary_condition=Boundaries(),
+        boundary_condition=NoBoundaries(),
         angular_diffusion_coefficient=Dtheta,
         position_diffusion_coefficient=Dx,
         drift_strength=0,
@@ -183,22 +179,11 @@ def test_angularnoiseprocess_angle_MSD():
     dt=0.01
     end=10
 
-    class Boundaries(BoundaryCondition):
-        def __init__(self):
-            super().__init__()
-            self._empty = np.empty((0, 2), dtype=int)
-
-        def _B_absorbing_boundary(self, positions):
-            return np.zeros((positions.shape[0],), dtype=bool)
-
-        def _B_reflecting_boundary(self, positions):
-            return np.ones((positions.shape[0],), dtype=bool)
-
     recorder = Recorder('test.h5')
     drift = lambda x, v, t: -np.arctan2(x[:, 1], x[:, 0])
     process = AngularNoiseProcessWithAngularDrift(
         time_step=dt,
-        boundary_condition=Boundaries(),
+        boundary_condition=NoBoundaries(),
         angular_diffusion_coefficient=Dtheta,
         position_diffusion_coefficient=Dx,
         drift_strength=0,

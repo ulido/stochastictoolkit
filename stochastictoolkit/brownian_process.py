@@ -39,6 +39,11 @@ class BrownianProcess(Process):
         diffusion = self.__stepsize*self._normal(size=(self._N_active, 2))
         return positions + drift + diffusion
 
+    def _reflect_particles(self, to_reflect_a, new_positions, crossing_points, tangent_vectors):
+        d = new_positions - crossing_points
+        dotp = (d*tangent_vectors).sum(axis=1)
+        self._position[to_reflect_a] = crossing_points-d+2*dotp[:, np.newaxis]*tangent_vectors
+
     @property
     def positions(self):
         return self._position[self._active, :]
