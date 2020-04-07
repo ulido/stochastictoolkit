@@ -20,11 +20,11 @@ def test_angularnoiseprocess_reflection():
             return positions[:, 0] > 1
 
         def get_crossing_and_tangent(self, positions, new_positions):
-            x0 = positions[:, 0]
-            x1 = new_positions[:, 0]
-            
             d = new_positions - positions
             return positions + d * ((1.0 - positions[:, 0]) / d[:, 0])[:, np.newaxis], self.tangent_vector
+
+        def __str__(self):
+            return "Test Boundary"
             
     recorder = Recorder('test.h5')
     process = AngularNoiseProcessWithAngularDrift(
