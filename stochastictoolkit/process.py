@@ -58,11 +58,11 @@ class Process(ABC, NormalsRG):
                 to_reflect_a = aidx[to_reflect]
                 not_to_reflect_a = aidx[~to_reflect]
                 self._position[not_to_reflect_a, :] = new_positions[~to_reflect, :]
-                crossing_points, tangent_vectors = (
-                    self._boundary_condition.get_crossing_and_tangent(self._position[to_reflect_a, :],
+                crossing_points, normal_vectors = (
+                    self._boundary_condition.get_crossing_and_normal(self._position[to_reflect_a, :],
                                                                       new_positions[to_reflect, :]))
                 self._reflect_particles(to_reflect_a, new_positions[to_reflect, :],
-                                        crossing_points, tangent_vectors)
+                                        crossing_points, normal_vectors)
             else:
                 self._position[self._active, :] = new_positions
 
@@ -137,6 +137,7 @@ class Process(ABC, NormalsRG):
             'force_strength': self._force_strength_dt/self.time_step,
             'force_function': str(self._force_function),
             'force_cutoff_distance': self._force_cutoff_distance,
+            'boundary_condition': self._boundary_condition.parameters,
         }
 
     @property

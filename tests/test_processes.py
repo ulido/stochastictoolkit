@@ -1,35 +1,50 @@
 import numpy as np
 
-from stochastictoolkit.particle_type import ParticleType, PointSource, BoundaryCondition, NoBoundaries
+from stochastictoolkit.particle_type import ParticleType, PointSource
+from stochastictoolkit.boundary_condition import BoundaryCondition, NoBoundaries
+from stochastictoolkit.interaction_force import InverseDistanceForce
 from stochastictoolkit.recorder import Recorder
 from stochastictoolkit.brownian_process import BrownianProcess
 from stochastictoolkit.angular_noise_process import AngularNoiseProcessWithAngularDrift
 
 from pytest import approx
+import pytest
 
-def test_angularnoiseprocess_reflection():
+@pytest.mark.parametrize("direction, sign", [('x', 1), ('x', -1), ('y', 1), ('y', -1)])
+def test_angularnoiseprocess_reflection(direction, sign):
     class Boundaries(BoundaryCondition):
-        def __init__(self):
+        def __init__(self, direction, sign):
             super().__init__()
-            self.tangent_vector = np.array([0, 1])[np.newaxis]
+            self.direction = 0 if direction == 'x' else 1
+            self.sign = sign
+            if direction == 'x':
+                self.normal_vector = -sign*np.array([[1, 0]])
+            elif direction == 'y':
+                self.normal_vector = -sign*np.array([[0, 1]])
+            else:
+                raise ValueError
             
         def absorbing_boundary(self, positions):
             return None
 
         def reflecting_boundary(self, positions):
-            return positions[:, 0] > 1
+            return self.sign*positions[:, self.direction] >= 1
 
-        def get_crossing_and_tangent(self, positions, new_positions):
+        def get_crossing_and_normal(self, positions, new_positions):
             d = new_positions - positions
-            return positions + d * ((1.0 - positions[:, 0]) / d[:, 0])[:, np.newaxis], self.tangent_vector
+            return positions + d * ((self.sign*1.0 - positions[:, self.direction]) / d[:, self.direction])[:, np.newaxis], self.normal_vector
 
         def __str__(self):
             return "Test Boundary"
-            
+
+        @property
+        def parameters(self):
+            return super().parameters
+
     recorder = Recorder('test.h5')
     process = AngularNoiseProcessWithAngularDrift(
         time_step=0.01,
-        boundary_condition=Boundaries(),
+        boundary_condition=Boundaries(sign=sign, direction=direction),
         angular_diffusion_coefficient=0,
         position_diffusion_coefficient=0,
         drift_strength=0,
@@ -37,14 +52,17 @@ def test_angularnoiseprocess_reflection():
         drift_function=None)
     particles = ParticleType('A', recorder, process)
     z = np.zeros((2,))
-    angles = np.linspace(-np.pi/4, np.pi/4, 20)
+    angles = np.linspace(-np.pi/4, np.pi/4, 20) + (direction == 'y') * np.pi/2 + (sign==-1)*np.pi
     for a in angles:
         process.add_particle(position=z, angle=a)
-
     while particles.time < 2*2**0.5:
         particles.step()
-
-    expected = ([[2,0]] - particles.time*np.exp(1j*angles)[np.newaxis].view(float).reshape(-1, 2))*[[1, -1]]
+    
+    if direction == 'x':
+        expected = ([[sign*2,0]] - particles.time*np.exp(1j*angles)[np.newaxis].view(float).reshape(-1, 2))*[[1, -1]]
+    elif direction == 'y':
+        expected = ([[0,sign*2]] - particles.time*np.exp(1j*angles)[np.newaxis].view(float).reshape(-1, 2))*[[-1, 1]]
+    
     assert(process.positions == approx(expected))
     
 def test_brownianprocess_MSD():
