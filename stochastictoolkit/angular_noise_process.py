@@ -1,5 +1,13 @@
+'''angular_noise_process.py
+
+Contains the implementation for an process with direction noise, direction drift,
+position noise and positon drift (particle-particle interactions).
+
+Classes
+-------
+AngularNoiseProcessWithAngularDrift: Angular noise process with drift
+'''
 import numpy as np
-import heapq
 
 from .process import Process
 
@@ -8,6 +16,12 @@ import logging
 logger = logging.getLogger(__name__)
 
 class AngularNoiseProcessWithAngularDrift(Process):
+    '''Process subclass describing a stochastic process with direction noise.
+
+    This is a catchall implementation for a process with direction noise and drift, together with
+    a normal Brownian process.
+    '''
+
     def __init__(self,
                  time_step,
                  boundary_condition,
@@ -18,6 +32,30 @@ class AngularNoiseProcessWithAngularDrift(Process):
                  drift_function=None,
                  force=None,
                  seed=None):
+        '''Initialize the process
+
+        Parameters
+        ----------
+        time_step: float
+            The time step size of the process
+        boundary_condition: BoundaryCondition
+            The BoundaryCondition subclass object describing the domain's boundary conditions
+        angular_diffusion_coefficient: float
+            The direction noise strength (angular diffusion coefficient)
+        position_diffusion_coefficient: float
+            The position diffusion coefficient
+        drift_strength: float
+            The strength of the direction drift term
+        speed: float
+            The constant speed of the particles
+        drift_function: Function
+            A function accepting a position argument returning the drift term
+        force: InteractionForce or None
+            The particle-particle interaction force. [default: None]
+        seed: int or None
+            The seed of the normal random number generator
+        '''
+        # This needs two variables - position and angle (direction)
         variables = {
             'position': (2, float),
             'angle': (1, float),
@@ -42,6 +80,7 @@ class AngularNoiseProcessWithAngularDrift(Process):
 
     @property
     def parameters(self):
+        '''Parameters of the process'''
         ret = super().parameters
         ret.update({
             'process': 'AngularNoiseProcessWithAngularDrift',
@@ -55,40 +94,60 @@ class AngularNoiseProcessWithAngularDrift(Process):
         return ret
         
     def _process_step(self):
+        '''Process position (and direction) update method'''
+        # Get positions and angles of active particles
         positions = self._position[self._active]
         angles = self._angle[self._active]
         
+        # Calculate velocity vectors from angles
         velocities = np.exp(1j*(angles)).view(np.float).reshape(-1, 2)
         
+        # Calculate drift term
         if self.__drift_function is not None:
             drift = self.__drift_strength_dt*self.__drift_function(positions, velocities, self.time)
         else:
             drift = 0.
+        # Calculate angular diffusion
         diffusion = self.__angular_stepsize*self._normal(size=(self._N_active,))
         self._angle[self._active] += drift + diffusion
         
+        # Calculate positional drift
         pos_drift = self._pairwise_force_term(positions) + velocities*self.__speeddt
+        # Calculate positional diffusion
         pos_diffusion = self.__pos_stepsize*self._normal(size=(self._N_active, 2))
         return positions + pos_drift + pos_diffusion
 
     def _reflect_particles(self, to_reflect_a, new_positions, crossing_points, normal_vectors):
+        # Calculate vector pointing from crossing point to new position
         d = new_positions - crossing_points
+        # Dot product to get the component normal to the boundary
         dotp = (d*normal_vectors).sum(axis=1)
+        # The reflected position is then this component twice subtracted from the new (invalid) position
         self._position[to_reflect_a] = new_positions - 2*dotp[:, np.newaxis]*normal_vectors
 
+        # Calculate the velocity vectors from the angles (norm = 1)
         velocities = np.exp(1j*(self._angle[to_reflect_a])).view(np.float).reshape(-1, 2)
+        # The new velocity is the reflection of the old velocity at the boundary
         velocities -= 2*(velocities*normal_vectors).sum(axis=1)[:, np.newaxis]*normal_vectors
+        # Update the angle
         self._angle[to_reflect_a] = np.arctan2(*velocities.T[::-1])
-
+        # We could have operated on the angles alone (without calculating the velocity vector),
+        # but this is more readable and has negligible performance penalty.
+        
     def add_particle(self, position, angle=None):
+        '''Add particle at given position and with given direction angle'''
         if angle is None:
+            # If no angle was given, generate a random one.
             angle = 2*np.pi*np.random.uniform()
+        # Add particle
         super().add_particle(position=position, angle=angle)
         
     @property
     def positions(self):
+        '''Current particle positions'''
         return self._position[self._active, :]
     
     @property
     def velocities(self):
+        '''Current particle angles'''
         return self.__speeddt/self.__time_step*np.exp(1j*self._angle[self._active]).view(np.float).reshape(-1, 2)
