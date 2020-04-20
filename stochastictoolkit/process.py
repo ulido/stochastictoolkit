@@ -12,9 +12,7 @@ logger = logging.getLogger(__name__)
 PROCESS_VARIABLE_INITIAL_SIZE = 100
 
 class Process(ABC, NormalsRG):
-    def __init__(self, variables, time_step, boundary_condition, seed,
-                 force_function=None, force_strength=0,
-                 force_cutoff_distance=0):
+    def __init__(self, variables, time_step, boundary_condition, seed, force=None):
         NormalsRG.__init__(self, int(1e7), default_size=(1, 2), seed=seed)
 
         self._boundary_condition = boundary_condition
@@ -28,17 +26,12 @@ class Process(ABC, NormalsRG):
             self.__dict__['_'+var] = np.empty(shape, dtype=dtype)
         self._current_size = PROCESS_VARIABLE_INITIAL_SIZE
         self._active = np.zeros((PROCESS_VARIABLE_INITIAL_SIZE,), dtype=bool)
+        self._force = np.zeros((PROCESS_VARIABLE_INITIAL_SIZE, 2), dtype=float)
         self._particle_ids = np.empty((PROCESS_VARIABLE_INITIAL_SIZE,), dtype=int)
         self._N_active = 0
         self._stale_indices = [i for i in range(self._active.shape[0])]
 
-        if (force_strength != 0) and (force_function is None):
-            raise ValueError("Force strength is nonzero but no force function specified!")
-        if (force_strength != 0) and (force_cutoff_distance <= 0):
-            raise ValueError("Force strength is nonzero but cutoff distance is invalid!")
-        self._force_cutoff_distance = force_cutoff_distance
-        self._force_strength_dt = force_strength*time_step
-        self._force_function = force_function
+        self.force = force
         
         self._particle_counter = itertools.count()
         
@@ -80,17 +73,20 @@ class Process(ABC, NormalsRG):
         pass
 
     def _pairwise_force_term(self, positions):
-        if self._force_strength_dt == 0:
+        if self.force is None:
             return 0
+        force_obj = self.force
+        forces = np.empty_like(positions)
         mi, ma = positions.min(), positions.max()
         ce = (ma+mi)/2
         hd = max((ma-mi)/1.99, 1e-5)
         qt = QuadTree([ce, ce], hd)
         qt.insert_points(positions)
-        forces = np.empty_like(positions)
-        for i, q in enumerate(qt.query_self(self._force_cutoff_distance)):
-            forces[i] = self._force_function(q-positions[i][np.newaxis]).sum(axis=0)
-        return self._force_strength_dt*forces
+        for i, q in enumerate(qt.query_self(force_obj.cutoff_distance)):
+            forces[i] = force_obj(q-positions[i][np.newaxis]).sum(axis=0)
+
+        self._force[self._active, :] = forces
+        return self.time_step*forces
 
     def add_particle(self, **kwargs):
         self.__logger.info('Adding particle...')
@@ -106,6 +102,7 @@ class Process(ABC, NormalsRG):
                 else:
                     self.__dict__['_' + var].resize((new_size, dim))
             self._active.resize((new_size,))
+            self._force.resize((new_size, 2))
             self._particle_ids.resize((new_size,))
             self._stale_indices.extend(i for i in range(old_size+1, new_size))
             self._current_size = new_size
@@ -114,6 +111,7 @@ class Process(ABC, NormalsRG):
         for var, value in kwargs.items():
             self.__dict__['_'+var][idx] = value
         self._active[idx] = True
+        self._force[idx] = 0
         self._particle_ids[idx] = next(self._particle_counter)
         self.__logger.debug("Active index is %s" % repr(self._active))
         self._N_active += 1
@@ -134,12 +132,14 @@ class Process(ABC, NormalsRG):
     @abstractmethod
     def parameters(self):
         return {
-            'force_strength': self._force_strength_dt/self.time_step,
-            'force_function': str(self._force_function),
-            'force_cutoff_distance': self._force_cutoff_distance,
+            'force': self.force.parameters if self.force is not None else None,
             'boundary_condition': self._boundary_condition.parameters,
         }
 
     @property
     def particle_ids(self):
         return self._particle_ids[self._active]
+
+    @property
+    def forces(self):
+        return self._force[self._active]

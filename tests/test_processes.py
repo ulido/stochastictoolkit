@@ -99,15 +99,12 @@ def test_brownianprocess_drift():
     end=1
 
     recorder = Recorder('test.h5')
-    def force_function(x):
-        return -x/(x**2).sum(axis=1)**(1.5)
+    
     process = BrownianProcess(
         time_step=dt,
         boundary_condition=NoBoundaries(),
         diffusion_coefficient=Dx,
-        force_strength=1,
-        force_function=force_function,
-        force_cutoff_distance=10)
+        force=InverseDistanceForce(strength=1, cutoff_distance=10))
     particles = ParticleType('A', recorder, process)
     z = np.zeros((2,))
     process.add_particle(position=np.array([-0.5, 0]))

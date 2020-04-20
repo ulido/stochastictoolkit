@@ -16,18 +16,13 @@ class AngularNoiseProcessWithAngularDrift(Process):
                  drift_strength,
                  speed,
                  drift_function=None,
-                 force_strength=0.,
-                 force_function=None,
-                 force_cutoff_distance=0,
+                 force=None,
                  seed=None):
         variables = {
             'position': (2, float),
             'angle': (1, float),
         }
-        super().__init__(variables, time_step, boundary_condition, seed,
-                         force_strength=force_strength,
-                         force_function=force_function,
-                         force_cutoff_distance=force_cutoff_distance)
+        super().__init__(variables, time_step, boundary_condition, seed, force=force)
 
         self.__time_step = time_step
         self.__angular_diffusion_coefficient = angular_diffusion_coefficient
