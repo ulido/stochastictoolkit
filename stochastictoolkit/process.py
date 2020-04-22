@@ -111,7 +111,6 @@ class Process(ABC, NormalsRG):
 
             # Reflect particles
             if (to_reflect is not None) and to_reflect.any():
-                old_positions = self._position[self._active, :][to_reflect, :]
                 # Get the indices of active particles
                 aidx = np.where(self._active)[0]
                 # From this get the indices of the particles which need to be reflected
