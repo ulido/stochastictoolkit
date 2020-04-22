@@ -56,10 +56,21 @@ class BoundaryCondition(ABC):
         return to_delete, to_reflect
 
     @property
+    def true_reflection(self):
+        '''Whether we want true reflection of particles or simple disallowed updates.
+
+        We set true reflection as the default, but a subclass can override this in case the
+        accuracy is not worth the computational overhead. 
+        '''
+        return True
+    
+    @property
     @abstractmethod
     def parameters(self):
         '''BoundaryCondition parameters'''
-        return {}
+        return {
+            'true reflection': self.true_reflection,
+        }
 
 class NoBoundaries(BoundaryCondition):
     '''No boundaries boundary condition'''

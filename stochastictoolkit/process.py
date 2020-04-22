@@ -121,14 +121,16 @@ class Process(ABC, NormalsRG):
                 # Update the positions of the particles that aren't reflected
                 self._position[not_to_reflect_a, :] = new_positions[~to_reflect, :]
 
-                # Calculate crossing points and normal vectors for each reflected particle
-                crossing_points, normal_vectors = (
-                    self._boundary_condition.get_crossing_and_normal(self._position[to_reflect_a, :],
-                                                                      new_positions[to_reflect, :]))
-                # Reflect particles (this is a process-specific function again because other
-                # variables other than position might be affected too (such as e.g. velocity)
-                self._reflect_particles(to_reflect_a, new_positions[to_reflect, :],
-                                        crossing_points, normal_vectors)
+                # Check if we want to do true reflection or simply disallow updates
+                if self._boundary_condition.true_reflection:
+                    # Calculate crossing points and normal vectors for each reflected particle
+                    crossing_points, normal_vectors = (
+                        self._boundary_condition.get_crossing_and_normal(self._position[to_reflect_a, :],
+                                                                         new_positions[to_reflect, :]))
+                    # Reflect particles (this is a process-specific function again because other
+                    # variables other than position might be affected too (such as e.g. velocity)
+                    self._reflect_particles(to_reflect_a, new_positions[to_reflect, :],
+                                            crossing_points, normal_vectors)
             else:
                 # If no particle needs reflection, update positions
                 self._position[self._active, :] = new_positions
