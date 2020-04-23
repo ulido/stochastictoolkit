@@ -23,15 +23,13 @@ class ParticleType:
     This is the central class for a particle type, holding the infrastructure and
     information of how a type of particle moves, gets created and removed.
     '''
-    def __init__(self, name, recorder, process, sources=[], sinks=[]):
+    def __init__(self, name, process, sources=[], sinks=[], recorder=None):
         '''Initialize a particle type
 
         Parameters
         ----------
         name: str
             Name of the particle type
-        recorder: Recorder
-            Recorder object for recording parameter and dynamical information
         process: Process
             The stochastic process the particle dynamics is described by. Needs to
             be a subclass of Process.
@@ -43,6 +41,8 @@ class ParticleType:
             List of sinks in the domain. All entries need to be a subclass of Sink
             Sinks all need to have unique names. A sink cannot be shared between
             particle types.
+        recorder: Recorder
+            Recorder object for recording parameter and dynamical information (default: None)
         '''
         self.name = name
 
@@ -65,12 +65,13 @@ class ParticleType:
         self.process = process
 
         # Record all the parameters of all components with the recorder object
-        recorder.register_parameter(f'particle_type_{name}', {
-            'name': name,
-            'process': self.process.parameters,
-            'sources': {s.name: s.parameters for s in self.sources.values()},
-            'sinks': {s.name: s.parameters for s in self.sinks.values()},
-        })
+        if recorder is not None:
+            recorder.register_parameter(f'particle_type_{name}', {
+                'name': name,
+                'process': self.process.parameters,
+                'sources': {s.name: s.parameters for s in self.sources.values()},
+                'sinks': {s.name: s.parameters for s in self.sinks.values()},
+            })
 
     def step(self):
         '''Perform one time step.'''

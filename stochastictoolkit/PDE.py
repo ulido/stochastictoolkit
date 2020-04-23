@@ -77,14 +77,14 @@ class DiffusionPDESolver:
     
     def __init__(self,
                  name,
-                 recorder,
                  lattice_size,
                  diffusion_coefficient,
                  source_strength,
                  source_positions,
                  decay_rate,
                  dx,
-                 max_dt=None):
+                 max_dt=None,
+                 recorder=None):
         '''Initialize the DiffusionPDESolver object
 
         This solves the diffusion equation with moving point sources. 
@@ -93,8 +93,6 @@ class DiffusionPDESolver:
         ----------
         name: str
             The name of the solver
-        recorder: Recorder object
-            The recorder object used to store parameters and data
         lattice_size: tuple of floats of size 2
             The extent of the domain
         diffusion_coefficient: float
@@ -107,6 +105,8 @@ class DiffusionPDESolver:
             Lattice spacing
         max_dt: float
             Maximum allowed time step (default: None)
+        recorder: Recorder object
+            The recorder object used to store parameters and data (default: None)
         '''
         self.name = name
         self.recorder = recorder
@@ -134,7 +134,8 @@ class DiffusionPDESolver:
             else:
                 raise ValueError('Cannot calculate a time stap and max_dt was not specified.')
 
-        self.recorder.register_parameter(f'diffusion_pde_{name}', self.parameters)
+        if recorder is not None:
+            self.recorder.register_parameter(f'diffusion_pde_{name}', self.parameters)
 
         self._r = self._diffusion_coefficient*self._dt/self._dx**2
         self._m = (1 - 4*self._r - self._decay_rate*self._dt)

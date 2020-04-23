@@ -3,7 +3,6 @@ import numpy as np
 from stochastictoolkit.particle_type import ParticleType, PointSource
 from stochastictoolkit.boundary_condition import BoundaryCondition, NoBoundaries
 from stochastictoolkit.interaction_force import InverseDistanceForce
-from stochastictoolkit.recorder import Recorder
 from stochastictoolkit.brownian_process import BrownianProcess
 from stochastictoolkit.angular_noise_process import AngularNoiseProcessWithAngularDrift
 
@@ -41,7 +40,6 @@ def test_angularnoiseprocess_reflection(direction, sign):
         def parameters(self):
             return super().parameters
 
-    recorder = Recorder('test.h5')
     process = AngularNoiseProcessWithAngularDrift(
         time_step=0.01,
         boundary_condition=Boundaries(sign=sign, direction=direction),
@@ -50,7 +48,7 @@ def test_angularnoiseprocess_reflection(direction, sign):
         drift_strength=0,
         speed=1,
         drift_function=None)
-    particles = ParticleType('A', recorder, process)
+    particles = ParticleType('A', process)
     z = np.zeros((2,))
     angles = np.linspace(-np.pi/4, np.pi/4, 20) + (direction == 'y') * np.pi/2 + (sign==-1)*np.pi
     for a in angles:
@@ -70,12 +68,11 @@ def test_brownianprocess_MSD():
     dt=0.01
     end=100
 
-    recorder = Recorder('test.h5')
     process = BrownianProcess(
         time_step=dt,
         boundary_condition=NoBoundaries(),
         diffusion_coefficient=Dx)
-    particles = ParticleType('A', recorder, process)
+    particles = ParticleType('A', process)
     z = np.zeros((2,))
     for i in range(10000):
         process.add_particle(position=z)
@@ -98,14 +95,12 @@ def test_brownianprocess_drift():
     dt=0.001
     end=1
 
-    recorder = Recorder('test.h5')
-    
     process = BrownianProcess(
         time_step=dt,
         boundary_condition=NoBoundaries(),
         diffusion_coefficient=Dx,
         force=InverseDistanceForce(strength=1, cutoff_distance=10))
-    particles = ParticleType('A', recorder, process)
+    particles = ParticleType('A', process)
     z = np.zeros((2,))
     process.add_particle(position=np.array([-0.5, 0]))
     process.add_particle(position=np.array([0.5, 0]))
@@ -133,13 +128,12 @@ def test_brownianprocess_source():
     end=10
     inj_rate=10
 
-    recorder = Recorder('test.h5')
     process = BrownianProcess(
         time_step=dt,
         boundary_condition=NoBoundaries(),
         diffusion_coefficient=Dx)
     source = PointSource('Source', np.zeros((2,)), inj_rate)
-    particles = ParticleType('A', recorder, process, sources=[source])
+    particles = ParticleType('A', process, sources=[source])
 
     while particles.time < end:
         particles.step()
@@ -159,7 +153,6 @@ def test_angularnoiseprocess_spatial_MSD():
     dt=0.01
     end=100
 
-    recorder = Recorder('test.h5')
     drift = lambda x, v, t: -np.arctan2(x[:, 1], x[:, 0])
     process = AngularNoiseProcessWithAngularDrift(
         time_step=dt,
@@ -169,7 +162,7 @@ def test_angularnoiseprocess_spatial_MSD():
         drift_strength=0,
         speed=speed,
         drift_function=drift)
-    particles = ParticleType('A', recorder, process)
+    particles = ParticleType('A', process)
     z = np.zeros((2,))
     for i in range(10000):
         process.add_particle(position=z)
@@ -194,7 +187,6 @@ def test_angularnoiseprocess_angle_MSD():
     dt=0.01
     end=10
 
-    recorder = Recorder('test.h5')
     drift = lambda x, v, t: -np.arctan2(x[:, 1], x[:, 0])
     process = AngularNoiseProcessWithAngularDrift(
         time_step=dt,
@@ -204,7 +196,7 @@ def test_angularnoiseprocess_angle_MSD():
         drift_strength=0,
         speed=speed,
         drift_function=drift)
-    particles = ParticleType('A', recorder, process)
+    particles = ParticleType('A', process)
     z = np.zeros((2,))
     for i in range(10000):
         process.add_particle(position=z)
