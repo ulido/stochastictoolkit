@@ -82,7 +82,7 @@ class Process(ABC, NormalsRG):
         # Initialize reshaping infrastructure
         self._current_size = PROCESS_VARIABLE_INITIAL_SIZE
         self._active = np.zeros((PROCESS_VARIABLE_INITIAL_SIZE,), dtype=bool)
-        self._force = np.zeros((PROCESS_VARIABLE_INITIAL_SIZE, 2), dtype=float)
+        self._force = np.zeros((PROCESS_VARIABLE_INITIAL_SIZE, self._position.shape[1]), dtype=float)
         self._particle_ids = np.empty((PROCESS_VARIABLE_INITIAL_SIZE,), dtype=int)
         self._N_active = 0
         self._stale_indices = [i for i in range(self._active.shape[0])]
@@ -153,7 +153,10 @@ class Process(ABC, NormalsRG):
         pass
 
     def _pairwise_force_term(self, positions):
-        '''Process infrastructure to calculate pairwise interaction forces.'''
+        '''Process infrastructure to calculate pairwise interaction forces.
+
+        Currently only works in 2D (uses a quadtree internally).
+        '''
         # Don't do anything if no force was given
         if self.force is None:
             return 0

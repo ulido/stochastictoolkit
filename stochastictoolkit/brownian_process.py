@@ -22,6 +22,7 @@ class BrownianProcess(Process):
                  time_step,
                  diffusion_coefficient,
                  boundary_condition,
+                 ndim=2,
                  force=None,
                  seed=None):
         '''Initialize the Brownian process
@@ -34,6 +35,8 @@ class BrownianProcess(Process):
             The diffusion coefficient of the particles
         boundary_condition: BoundaryCondition
             The BoundaryCondition subclass object describing the domain's boundary conditions
+        ndim: int
+            Number of dimensions (default: 2)
         force: InteractionForce or None
             The particle-particle interaction force. [default: None]
         seed: int or None
@@ -41,11 +44,12 @@ class BrownianProcess(Process):
         '''
         # Brownian particles are completely described by only their position.
         variables = {
-            'position': (2, float)
+            'position': (ndim, float)
         }
         # Initialize the Process superclass
         super().__init__(variables, time_step, boundary_condition, seed, force=force)
 
+        self.__ndim = ndim
         self.__diffusion_coefficient = diffusion_coefficient
 
         # The step size is $\sqrt{2D\Delta t}$
@@ -59,6 +63,7 @@ class BrownianProcess(Process):
             'process': 'BrownianProcess',
             'time_step': self.time_step,
             'diffusion_coefficient': self.__diffusion_coefficient,
+            'dimensions': self.__ndim,
         })
         return ret
     
@@ -69,7 +74,7 @@ class BrownianProcess(Process):
         # Calculate the drift (from the interaction forces)
         drift = self._pairwise_force_term(positions)
         # Calculate the diffusion term
-        diffusion = self.__stepsize*self._normal(size=(self._N_active, 2))
+        diffusion = self.__stepsize*self._normal(size=(self._N_active, self.__ndim))
         # Return new positions
         return positions + drift + diffusion
 
