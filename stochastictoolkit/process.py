@@ -206,7 +206,7 @@ class Process(ABC, NormalsRG):
                 else:
                     self.__dict__['_' + var].resize((new_size, dim))
             self._active.resize((new_size,))
-            self._force.resize((new_size, 2))
+            self._force.resize((new_size, self._force.shape[1]))
             self._particle_ids.resize((new_size,))
             self._stale_indices.extend(i for i in range(old_size+1, new_size))
             self._current_size = new_size
