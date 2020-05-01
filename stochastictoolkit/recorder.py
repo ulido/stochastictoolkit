@@ -162,5 +162,5 @@ class Recorder:
         for type_name, (_, rows) in self._recording_types.items():
             self.__logger.info(f"Saving {len(rows)} recorded events for type {type_name}")
             df = pd.DataFrame(rows)
-            df.to_hdf(self._filename, mode='a', key=type_name)
+            df.to_hdf(self._filename, mode='a', key=type_name, format='table')
 
