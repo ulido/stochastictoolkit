@@ -12,15 +12,23 @@ __all__ = ['BoundaryCondition', 'NoBoundaries']
 class BoundaryCondition(ABC):
     '''Base class for all boundary conditions
 
-    All boundary condition classes inherit from this class When subclassing the following
-    abstract methods need to be implemented:
+    All boundary condition classes inherit from this class.
+
+    When subclassing the following methods can be implemented:
     * `absorbing_boundary`: decides if a particle has crossed an absorbing boundary
     * `reflecting_boundary`: decides if a particle has crossed a reflecting boundary
-    * `get_crossing_and_normal`: calculates crossing point and normal vector for reflecting bounds
-    * `__str__`: boundary object description
+    * `periodic_boundary`: decides if a particle has crossed a periodic boundary
+    * `get_reflective_crossing_and_normal`: calculates crossing point and normal vector for reflecting
+      bounds (mandatory if `reflecting_boundary` is implemented and `true_reflection` evaluates to `True`)
+    * `get_periodic_new_position`: calculates the new position when crossing a periodic boundary
+      (mandatory if `periodic_boundary` is implemented)
+    * `true_reflection` (property): decides if to use "true" reflection or simply disallow updates
+    * `periodic_ghost_positions`: checks if position is within `offset` of a periodic
+      boundary and returns the corresponding ghost positions (mandatory if `periodic_boundary`
+      is implemented and particle interaction forces are in use)
+    * `__str__`: boundary object description (mandatory)
     * `parameters`: property returning the boundary parameters
     '''
-    @abstractmethod
     def absorbing_boundary(self, positions):
         '''Evaluate absorbing boundaries
 
@@ -28,9 +36,8 @@ class BoundaryCondition(ABC):
         an absorbing boundary. Return a bool array - true for particles that are absorbed,
         false else. Return `None` if no absorbing boundaries exist.
         '''
-        pass
+        return None
         
-    @abstractmethod
     def reflecting_boundary(self, positions):
         '''Evaluate reflecting boundaries
 
@@ -38,22 +45,36 @@ class BoundaryCondition(ABC):
         a reflecting boundary. Return a bool array - true for particles that need to be reflected,
         false else. Return `None` if no reflecting boundaries exist.
         '''
-        pass
+        return None
 
-    @abstractmethod
-    def get_crossing_and_normal(self, positions, new_positions):
+    def periodic_boundary(self, positions):
+        '''Evaluate periodic boundaries
+
+        For each particle position in `positions` evaluate if the
+        particle has crossed a reflecting boundary. Return a bool
+        array (True if particle position needs to be updated, False if
+        not).
+        '''
+        return None
+
+    def get_reflective_crossing_and_normal(self, positions, new_positions):
         '''Return the crossing point and the normal vector for each particle'''
-        pass
+        raise NotImplementedError
 
-    @abstractmethod
-    def __str__(self):
-        return "Boundary Condition base class (abstract)"
+    def get_periodic_new_position(self, positions):
+        '''Return the new positions when crossing a periodic boundary'''
+        raise NotImplementedError
+
+    def periodic_ghost_positions(self, positions, offset):
+        '''Return a bool array of positions that are within offset of a periodic boundary.'''
+        return None
 
     def __call__(self, positions):
         '''Evaluate boundary condition'''
         to_delete = self.absorbing_boundary(positions)
         to_reflect = self.reflecting_boundary(positions)
-        return to_delete, to_reflect
+        to_periodic = self.periodic_boundary(positions)
+        return to_delete, to_reflect, to_periodic
 
     @property
     def true_reflection(self):
@@ -74,18 +95,6 @@ class BoundaryCondition(ABC):
 
 class NoBoundaries(BoundaryCondition):
     '''No boundaries boundary condition'''
-    def absorbing_boundary(self, positions):
-        return None
-    
-    def reflecting_boundary(self, positions):
-        return None
-    
-    def get_crossing_and_normal(self, positions, new_positions):
-        # There are no reflective boundaries... and this can't be called anyway.
-        raise NotImplementedError()
-
-    def __str__(self):
-        return "No boundary condition"
 
     @property
     def parameters(self):

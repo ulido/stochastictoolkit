@@ -103,12 +103,14 @@ class Process(ABC, NormalsRG):
         if self._N_active > 0:
             # Step particle positions (this is the specific process step function, e.g. Brownian)
             new_positions = self._process_step()
-
-            # Evaluate boundary conditions: to_delete - from absorbing conditions,
-            # to_reflect from reflecting conditions). Both of these are boolean arrays.
-            # Either of these can be None when there are no boundaries of the given type.
-            to_delete, to_reflect = self._boundary_condition(new_positions)
-
+            # Evaluate boundary conditions: to_delete - from absorbing
+            # conditions, to_reflect from reflecting conditions,
+            # to_periodic from periodic conditions. All of these are
+            # boolean arrays.  Any of them can be None when there are
+            # no boundaries of the given type.
+            # NOTE THAT THIS MIGHT BE PROBLEMATIC - REFLECTIVE BOUNDS CAN INTERACT WITH PERIODIC BOUNDS!!
+            to_delete, to_reflect, to_periodic = self._boundary_condition(new_positions)
+            
             # Reflect particles
             if (to_reflect is not None) and to_reflect.any():
                 # Get the indices of active particles
@@ -125,8 +127,8 @@ class Process(ABC, NormalsRG):
                 if self._boundary_condition.true_reflection:
                     # Calculate crossing points and normal vectors for each reflected particle
                     crossing_points, normal_vectors = (
-                        self._boundary_condition.get_crossing_and_normal(self._position[to_reflect_a, :],
-                                                                         new_positions[to_reflect, :]))
+                        self._boundary_condition.get_reflective_crossing_and_normal(self._position[to_reflect_a, :],
+                                                                                    new_positions[to_reflect, :]))
                     # Reflect particles (this is a process-specific function again because other
                     # variables other than position might be affected too (such as e.g. velocity)
                     self._reflect_particles(to_reflect_a, new_positions[to_reflect, :],
@@ -134,6 +136,19 @@ class Process(ABC, NormalsRG):
             else:
                 # If no particle needs reflection, update positions
                 self._position[self._active, :] = new_positions
+
+            # Periodic boundaries - note that we only take care of
+            # particles that need to be updated, any others have
+            # already been taken care of in the previous step!
+            if (to_periodic is not None) and to_periodic.any():
+                # Get the indices of active particles
+                aidx = np.where(self._active)[0]
+                # From this get the indices of the particles whose positions need to be adjusted
+                to_periodic_a = aidx[to_periodic]
+
+                # And update the relevant positions
+                self._position[to_periodic_a, :] = (
+                    self._boundary_condition.get_periodic_new_position(new_positions[to_periodic, :]))
 
             # Delete any absorbed particles
             if to_delete is not None:
@@ -164,17 +179,26 @@ class Process(ABC, NormalsRG):
         force_obj = self.force
         forces = np.empty_like(positions)
 
+        # Calculate any ghost positions due to periodic boundaries
+        ghost_positions = self._boundary_condition.periodic_ghost_positions(positions, force_obj.cutoff_distance)
+
         # We use a quadtree to search particle neighborhoods within a cutoff distance
         # Initialize the quadtree neighborhood search domain
         mi, ma = positions.min(), positions.max()
+        if ghost_positions is not None:
+            mi = min(mi, ghost_positions.min())
+            ma = max(ma, ghost_positions.max())
+        
         ce = (ma+mi)/2
         hd = max((ma-mi)/1.99, 1e-5)
         qt = QuadTree([ce, ce], hd)
 
         # Insert all particle positions into the quadtree
         qt.insert_points(positions)
+        if ghost_positions is not None:
+            qt.insert_points(ghost_positions)
         # For each particle, search its neighborhood and calculate the overall force on it
-        for i, q in enumerate(qt.query_self(force_obj.cutoff_distance)):
+        for i, q in enumerate(qt.query_self(force_obj.cutoff_distance)[:forces.shape[0]]):
             forces[i] = force_obj(q-positions[i][np.newaxis]).sum(axis=0)
 
         # Save the instantaneous forces (so we can output them if needed)
