@@ -83,6 +83,7 @@ class Process(ABC, NormalsRG):
         self._current_size = PROCESS_VARIABLE_INITIAL_SIZE
         self._active = np.zeros((PROCESS_VARIABLE_INITIAL_SIZE,), dtype=bool)
         self._force = np.zeros((PROCESS_VARIABLE_INITIAL_SIZE, self._position.shape[1]), dtype=float)
+        self._inst_velocity = np.zeros((PROCESS_VARIABLE_INITIAL_SIZE, self._position.shape[1]), dtype=float)
         self._particle_ids = np.empty((PROCESS_VARIABLE_INITIAL_SIZE,), dtype=int)
         self._N_active = 0
         self._stale_indices = [i for i in range(self._active.shape[0])]
@@ -103,6 +104,9 @@ class Process(ABC, NormalsRG):
         if self._N_active > 0:
             # Step particle positions (this is the specific process step function, e.g. Brownian)
             new_positions = self._process_step()
+            # Calculate instantaneous velocity (disregarding reflection!)
+            self._inst_velocity[self._active, :] = (new_positions - self._position[self._active, :])/self.time_step
+
             # Evaluate boundary conditions: to_delete - from absorbing
             # conditions, to_reflect from reflecting conditions,
             # to_periodic from periodic conditions. All of these are
@@ -231,6 +235,7 @@ class Process(ABC, NormalsRG):
                     self.__dict__['_' + var].resize((new_size, dim))
             self._active.resize((new_size,))
             self._force.resize((new_size, self._force.shape[1]))
+            self._inst_velocity.resize((new_size, self._inst_velocity.shape[1]))
             self._particle_ids.resize((new_size,))
             self._stale_indices.extend(i for i in range(old_size+1, new_size))
             self._current_size = new_size
@@ -286,3 +291,8 @@ class Process(ABC, NormalsRG):
     def forces(self):
         '''The instantaneous particle interaction forces.'''
         return self._force[self._active]
+
+    @property
+    def instantaneous_velocity(self):
+        '''The instanteneous particle velocities.'''
+        return self._inst_velocity[self._active]
