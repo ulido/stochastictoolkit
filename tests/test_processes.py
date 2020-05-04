@@ -2,6 +2,7 @@ import numpy as np
 
 from stochastictoolkit.particle_type import ParticleType, PointSource
 from stochastictoolkit.boundary_condition import BoundaryCondition, NoBoundaries
+from stochastictoolkit.external_drift import ConstantDrift
 from stochastictoolkit.interaction_force import InverseDistanceForce
 from stochastictoolkit.brownian_process import BrownianProcess
 from stochastictoolkit.angular_noise_process import AngularNoiseProcessWithAngularDrift
@@ -133,7 +134,7 @@ def test_brownianprocess_drift():
         time_step=dt,
         boundary_condition=NoBoundaries(),
         diffusion_coefficient=Dx,
-        force=InverseDistanceForce(strength=1, cutoff_distance=10))
+        interaction_force=InverseDistanceForce(strength=1, cutoff_distance=10))
     particles = ParticleType('A', process)
     z = np.zeros((2,))
     process.add_particle(position=np.array([-0.5, 0]))
@@ -154,6 +155,27 @@ def test_brownianprocess_drift():
     rpos = (6*time+1)**(1/3)
     maxerr = abs(pos - rpos).max()
     assert(maxerr < 1e-3)
+    return True
+
+def test_brownianprocess_external_drift():
+    Dx=0
+    dt=0.01
+    end=1
+
+    external_drift = ConstantDrift([1, 1])
+    
+    process = BrownianProcess(
+        time_step=dt,
+        boundary_condition=NoBoundaries(),
+        diffusion_coefficient=Dx,
+        external_drift=external_drift)
+    particles = ParticleType('A', process)
+    process.add_particle(position=np.array([0, 0]))
+
+    while particles.time < end:
+        particles.step()
+
+    assert(particles.positions[0] == approx(external_drift.parameters['drift_vector']))
     return True
 
 def test_brownianprocess_source():
@@ -278,7 +300,7 @@ def test_brownianprocess_periodic_drift():
         time_step=dt,
         boundary_condition=Boundaries(),
         diffusion_coefficient=Dx,
-        force=InverseDistanceForce(strength=1, cutoff_distance=10))
+        interaction_force=InverseDistanceForce(strength=1, cutoff_distance=10))
     particles = ParticleType('A', process)
     z = np.zeros((2,))
     process.add_particle(position=np.array([-49.5, 0]))

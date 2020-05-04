@@ -23,7 +23,8 @@ class BrownianProcess(Process):
                  diffusion_coefficient,
                  boundary_condition,
                  ndim=2,
-                 force=None,
+                 external_drift=None,
+                 interaction_force=None,
                  seed=None):
         '''Initialize the Brownian process
 
@@ -37,7 +38,9 @@ class BrownianProcess(Process):
             The BoundaryCondition subclass object describing the domain's boundary conditions
         ndim: int
             Number of dimensions (default: 2)
-        force: InteractionForce or None
+        external_drift: ExternalDrift or None
+            The external drift. [default: None]
+        interaction_force: InteractionForce or None
             The particle-particle interaction force. [default: None]
         seed: int or None
             The seed of the normal random number generator
@@ -47,11 +50,13 @@ class BrownianProcess(Process):
             'position': (ndim, float)
         }
         # Initialize the Process superclass
-        super().__init__(variables, time_step, boundary_condition, seed, force=force)
+        super().__init__(variables, time_step, boundary_condition, seed, force=interaction_force)
 
         self.__ndim = ndim
         self.__diffusion_coefficient = diffusion_coefficient
 
+        self.__external_drift = external_drift
+        
         # The step size is $\sqrt{2D\Delta t}$
         self.__stepsize = (2*diffusion_coefficient*time_step)**0.5
 
@@ -64,6 +69,7 @@ class BrownianProcess(Process):
             'time_step': self.time_step,
             'diffusion_coefficient': self.__diffusion_coefficient,
             'dimensions': self.__ndim,
+            'external_drift': self.__external_drift.parameters if self.__external_drift is not None else None,
         })
         return ret
     
@@ -73,6 +79,10 @@ class BrownianProcess(Process):
         positions = self._position[self._active, :]
         # Calculate the drift (from the interaction forces)
         drift = self._pairwise_force_term(positions)
+        # Calculate the external drift
+        if self.__external_drift is not None:
+            drift += self.time_step*self.__external_drift(positions)
+        
         # Calculate the diffusion term
         diffusion = self.__stepsize*self._normal(size=(self._N_active, self.__ndim))
         # Return new positions
