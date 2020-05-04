@@ -13,9 +13,6 @@ import heapq
 
 from .normalsrg import NormalsRG
 
-import logging
-logger = logging.getLogger(__name__)
-
 __all__ = ['Process']
 
 # This value controls the initial allocation size of variable arrays.
@@ -95,8 +92,6 @@ class Process(ABC, NormalsRG):
         
         self.time_step = time_step
         self.time = 0
-
-        self.__logger = logger.getChild('Process')
 
     def step(self):
         '''Perform one time step of the process.'''
@@ -217,13 +212,11 @@ class Process(ABC, NormalsRG):
         All keyword arguments need to be valid variable names for the Process subclass.
         No checking is done if every variable is initialized correctly, therefore this method
         should be overridden by the Process subclass and called only from there.'''
-        self.__logger.info('Adding particle...')
 
         # Check if a stale index exists in the heap
         try:
             # If yes, use the first one
             idx = heapq.heappop(self._stale_indices)
-            self.__logger.debug('...with index %d' % idx)
         except IndexError:
             # If not, resize all the variable arrays
             old_size = self._current_size
@@ -240,7 +233,6 @@ class Process(ABC, NormalsRG):
             self._stale_indices.extend(i for i in range(old_size+1, new_size))
             self._current_size = new_size
             idx = old_size
-            self.__logger.debug('...with new index %d (after extending arrays)' % idx)
 
         # Initialize all given variables
         for var, value in kwargs.items():
@@ -250,7 +242,6 @@ class Process(ABC, NormalsRG):
         self._force[idx] = 0
         # Initialize particle id
         self._particle_ids[idx] = next(self._particle_counter)
-        self.__logger.debug("Active index is %s" % repr(self._active))
         self._N_active += 1
 
     def remove_particles(self, indexes):
@@ -258,16 +249,13 @@ class Process(ABC, NormalsRG):
         # Do nothing if no indices given
         if len(indexes) == 0:
             return
-        self.__logger.info('Removing particles with user index %s...' % str(indexes))
         # Figure out which system indices correspond to the given user indices
         indexes = np.where(self._active)[0][indexes]
-        self.__logger.debug('... which are system indexes %s' % indexes)
         # Set these indices to stale and push to the heap
         for index in indexes:
             heapq.heappush(self._stale_indices, index)
         # Set these indices to inactive
         self._active[indexes] = False
-        self.__logger.debug("Active index is %s" % repr(self._active))
         self._N_active -= len(indexes)
 
     @property

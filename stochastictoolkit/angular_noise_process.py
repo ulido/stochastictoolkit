@@ -11,10 +11,6 @@ import numpy as np
 
 from .process import Process
 
-import logging
-
-logger = logging.getLogger(__name__)
-
 class AngularNoiseProcessWithAngularDrift(Process):
     '''Process subclass describing a stochastic process with direction noise.
 
@@ -76,8 +72,6 @@ class AngularNoiseProcessWithAngularDrift(Process):
 
         self.time = 0
         
-        self.__logger = logger.getChild('VelocityJump')
-
     @property
     def parameters(self):
         '''Parameters of the process'''

@@ -14,10 +14,6 @@ import pathlib
 from collections import namedtuple
 import pickle
 
-import logging
-
-logger = logging.getLogger(__name__)
-
 __all__ = ['Recorder']
 
 class Recorder:
@@ -43,8 +39,6 @@ class Recorder:
             raise ValueError(f'File {filename} exists!')
         self._filename = filename
         
-        self.__logger = logger.getChild('Recorder')
-        
     def register_parameter(self, name, value):
         '''Register a single parameter name and value pair
 
@@ -61,7 +55,6 @@ class Recorder:
             raise RuntimeError("Trying to register parameter after recording has started!")
         if name in self._parameters:
             raise KeyError(f"Parameter {name} was already registered!")
-        self.__logger.info(f"Registering parameter {name}")
         self._parameters[name] = value
 
     def register_parameters(self, parameters):
@@ -120,14 +113,12 @@ class Recorder:
         fields: sequence
             List of fields in this data type
         '''
-        self.__logger.info(f"Registering recording type {name}")
         if self._frozen:
             raise RuntimeError("Trying to create type after recording has started!")            
         self._recording_types_under_construction[name] = fields
 
     def _build_recording_types(self):
         '''Finalize all data types'''
-        self.__logger.info(f"Building recording types")
         self._frozen = True
         for name, fields in self._recording_types_under_construction.items():
             self._recording_types[name] = (namedtuple(name, list(fields)), [])
@@ -147,7 +138,6 @@ class Recorder:
         if not self._frozen:
             self._build_recording_types()
         rec_type, rows = self._recording_types[type_name]
-        self.__logger.info(f"Recording event of type {type_name}")
         rows.append(rec_type(**items))
 
     def save(self):
@@ -160,7 +150,6 @@ class Recorder:
                            for k, v in self._parameters.items()])
         df.to_hdf(self._filename, mode='a', key='parameters')
         for type_name, (_, rows) in self._recording_types.items():
-            self.__logger.info(f"Saving {len(rows)} recorded events for type {type_name}")
             df = pd.DataFrame(rows)
             df.to_hdf(self._filename, mode='a', key=type_name, format='table')
 

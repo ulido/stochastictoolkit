@@ -9,9 +9,6 @@ NormalsRG: Mixin class to generate normal random numbers
 import randomgen
 import numpy as np
 
-import logging
-logger = logging.getLogger(__name__)
-
 __all__ = ['NormalsRG']
 
 class NormalsRG:
@@ -43,11 +40,8 @@ class NormalsRG:
         self.__N_default_size = default_size
         self.__N_default_N = np.prod(default_size)
 
-        self.__logger = logger.getChild('NormalsRG')
-        
     def __N_refill(self):
         # Refill the container and reset counter
-        self.__logger.info('Refilling random numbers')
         self.__N_array = self.__N_rng.standard_normal(size=self.__N_normals)
         self.__N_index = 0
         

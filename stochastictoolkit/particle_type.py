@@ -11,9 +11,6 @@ Sink: Base class for particle sinks
 '''
 import numpy as np
 from abc import ABC, abstractmethod
-import logging
-
-logger = logging.getLogger(__name__)
 
 __all__ = ['ParticleType', 'Source', 'Sink', 'PointSource']
 
