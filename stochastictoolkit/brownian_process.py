@@ -95,7 +95,7 @@ class BrownianProcess(Process):
         # Component of this vector in the direction of the boundary normal
         dotp = (d*tangent_vectors).sum(axis=1)
         # The resulting new position is the crossing point plus twice this component
-        self._position[to_reflect_a] = crossing_points-d+2*dotp[:, np.newaxis]*tangent_vectors
+        return crossing_points-d+2*dotp[:, np.newaxis]*tangent_vectors
 
     @property
     def positions(self):

@@ -102,43 +102,36 @@ class Process(ABC, NormalsRG):
             # Calculate instantaneous velocity (disregarding reflection!)
             self._inst_velocity[self._active, :] = (new_positions - self._position[self._active, :])/self.time_step
 
-            # Evaluate boundary conditions: to_delete - from absorbing
-            # conditions, to_reflect from reflecting conditions,
-            # to_periodic from periodic conditions. All of these are
+            bc = self._boundary_condition
+            # Evaluate boundary conditions
+            # All of the returns from the boundary conditions are
             # boolean arrays.  Any of them can be None when there are
             # no boundaries of the given type.
-            # NOTE THAT THIS MIGHT BE PROBLEMATIC - REFLECTIVE BOUNDS CAN INTERACT WITH PERIODIC BOUNDS!!
-            to_delete, to_reflect, to_periodic = self._boundary_condition(new_positions)
             
             # Reflect particles
+            to_reflect = bc.reflecting_boundary(new_positions)
             if (to_reflect is not None) and to_reflect.any():
                 # Get the indices of active particles
                 aidx = np.where(self._active)[0]
                 # From this get the indices of the particles which need to be reflected
                 to_reflect_a = aidx[to_reflect]
-                # ...and the indices for those that aren't.
-                not_to_reflect_a = aidx[~to_reflect]
-
-                # Update the positions of the particles that aren't reflected
-                self._position[not_to_reflect_a, :] = new_positions[~to_reflect, :]
 
                 # Check if we want to do true reflection or simply disallow updates
                 if self._boundary_condition.true_reflection:
                     # Calculate crossing points and normal vectors for each reflected particle
                     crossing_points, normal_vectors = (
-                        self._boundary_condition.get_reflective_crossing_and_normal(self._position[to_reflect_a, :],
-                                                                                    new_positions[to_reflect, :]))
+                        bc.get_reflective_crossing_and_normal(self._position[to_reflect_a, :],
+                                                              new_positions[to_reflect, :]))
                     # Reflect particles (this is a process-specific function again because other
                     # variables other than position might be affected too (such as e.g. velocity)
-                    self._reflect_particles(to_reflect_a, new_positions[to_reflect, :],
-                                            crossing_points, normal_vectors)
-            else:
-                # If no particle needs reflection, update positions
-                self._position[self._active, :] = new_positions
+                    new_positions[to_reflect, :] = self._reflect_particles(to_reflect_a, new_positions[to_reflect, :],
+                                                                           crossing_points, normal_vectors)
+                else:
+                    # Discard new positions otherwise
+                    new_positions[to_reflect, :] = self._position[to_reflect_a, :]
 
-            # Periodic boundaries - note that we only take care of
-            # particles that need to be updated, any others have
-            # already been taken care of in the previous step!
+            # Periodic boundaries
+            to_periodic = bc.periodic_boundary(new_positions)
             if (to_periodic is not None) and to_periodic.any():
                 # Get the indices of active particles
                 aidx = np.where(self._active)[0]
@@ -146,10 +139,12 @@ class Process(ABC, NormalsRG):
                 to_periodic_a = aidx[to_periodic]
 
                 # And update the relevant positions
-                self._position[to_periodic_a, :] = (
-                    self._boundary_condition.get_periodic_new_position(new_positions[to_periodic, :]))
+                new_positions[to_periodic, :] = bc.get_periodic_new_position(new_positions[to_periodic, :])
+
+            self._position[self._active, :] = new_positions
 
             # Delete any absorbed particles
+            to_delete = bc.absorbing_boundary(new_positions)
             if to_delete is not None:
                 self.remove_particles(to_delete)
         
@@ -184,7 +179,7 @@ class Process(ABC, NormalsRG):
         # We use a quadtree to search particle neighborhoods within a cutoff distance
         # Initialize the quadtree neighborhood search domain
         mi, ma = positions.min(), positions.max()
-        if ghost_positions is not None:
+        if ghost_positions is not None and ghost_positions.shape[0] > 0:
             mi = min(mi, ghost_positions.min())
             ma = max(ma, ghost_positions.max())
         

@@ -117,7 +117,8 @@ class AngularNoiseProcessWithAngularDrift(Process):
         # Dot product to get the component normal to the boundary
         dotp = (d*normal_vectors).sum(axis=1)
         # The reflected position is then this component twice subtracted from the new (invalid) position
-        self._position[to_reflect_a] = new_positions - 2*dotp[:, np.newaxis]*normal_vectors
+        # Don't update the positions yet, we need to return them (other BCs might need evaluation)
+        new_positions -= 2*dotp[:, np.newaxis]*normal_vectors
 
         # Calculate the velocity vectors from the angles (norm = 1)
         velocities = np.exp(1j*(self._angle[to_reflect_a])).view(np.float).reshape(-1, 2)
@@ -127,6 +128,8 @@ class AngularNoiseProcessWithAngularDrift(Process):
         self._angle[to_reflect_a] = np.arctan2(*velocities.T[::-1])
         # We could have operated on the angles alone (without calculating the velocity vector),
         # but this is more readable and has negligible performance penalty.
+
+        return new_positions
         
     def add_particle(self, position, angle=None):
         '''Add particle at given position and with given direction angle'''

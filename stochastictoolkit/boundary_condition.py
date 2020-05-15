@@ -69,13 +69,6 @@ class BoundaryCondition(ABC):
         '''Return a bool array of positions that are within offset of a periodic boundary.'''
         return None
 
-    def __call__(self, positions):
-        '''Evaluate boundary condition'''
-        to_delete = self.absorbing_boundary(positions)
-        to_reflect = self.reflecting_boundary(positions)
-        to_periodic = self.periodic_boundary(positions)
-        return to_delete, to_reflect, to_periodic
-
     @property
     def true_reflection(self):
         '''Whether we want true reflection of particles or simple disallowed updates.
