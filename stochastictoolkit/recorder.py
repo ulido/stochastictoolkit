@@ -19,7 +19,7 @@ __all__ = ['Recorder']
 class Recorder:
     '''Recorder class for recording and storing parameters, events and data'''
 
-    def __init__(self, filename):
+    def __init__(self, filename, batch_size=10000):
         '''Initialize the Recorder object
 
         A ValueError is raised if the given file already exists.
@@ -38,6 +38,9 @@ class Recorder:
         if pathlib.Path(filename).exists():
             raise ValueError(f'File {filename} exists!')
         self._filename = filename
+
+        self.batch_size = batch_size
+        self.store = pd.HDFStore(filename)
         
     def register_parameter(self, name, value):
         '''Register a single parameter name and value pair
@@ -139,6 +142,9 @@ class Recorder:
             self._build_recording_types()
         rec_type, rows = self._recording_types[type_name]
         rows.append(rec_type(**items))
+        if len(rows) >= self.batch_size:
+            self.store.append(type_name, pd.DataFrame(rows), format='table')
+            rows.clear()
 
     def save(self):
         '''Save all records in the database file.'''
@@ -148,8 +154,11 @@ class Recorder:
                             'value': str(repr(v)),
                             'pickled_value': str(pickle.dumps(v))}
                            for k, v in self._parameters.items()])
-        df.to_hdf(self._filename, mode='a', key='parameters')
-        for type_name, (_, rows) in self._recording_types.items():
-            df = pd.DataFrame(rows)
-            df.to_hdf(self._filename, mode='a', key=type_name, format='table')
+        self.store.put('parameters', df, format='table')
 
+        for type_name, (_, rows) in self._recording_types.items():
+            if len(rows) > 0:
+                df = pd.DataFrame(rows)
+                self.store.append(type_name, df, format='table')
+
+        self.store.close()

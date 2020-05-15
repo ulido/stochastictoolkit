@@ -13,6 +13,13 @@ def get_filename_from_tmppath(path, fname):
 def test_array(tmp_path):
     fname = get_filename_from_tmppath(tmp_path, 'arraytest.h5')
     recorder = Recorder(fname)
+    
+    test_parameters = {
+        'parameter2': 2,
+        'parameter3': np.array([5, 6]),
+    }
+    recorder.register_parameters(test_parameters)
+
     times = np.arange(10)
     array = np.random.uniform(size=(times.shape[0], 10, 10))
     for i, time in enumerate(times):
@@ -58,8 +65,14 @@ def test_parameters(tmp_path):
     assert(len(parameter_names) == 0)
 
 def test_table(tmp_path):
-    fname = get_filename_from_tmppath(tmp_path, 'arraytest.h5')
+    fname = get_filename_from_tmppath(tmp_path, 'tabletest.h5')
     recorder = Recorder(fname)
+
+    test_parameters = {
+        'parameter2': 2,
+        'parameter3': np.array([5, 6]),
+    }
+    recorder.register_parameters(test_parameters)
 
     recorder.new_recording_type('TestType', ['a', 'b', 'c'])
 
@@ -67,6 +80,7 @@ def test_table(tmp_path):
 
     recorder.save()
 
+    parameters = pd.read_hdf(fname, '/parameters')
     df = pd.read_hdf(fname, '/TestType')
 
     assert(df.shape == (1, 3))
