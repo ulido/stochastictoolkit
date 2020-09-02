@@ -33,7 +33,7 @@ class NormalsRG:
         seed: int
             Seed of the random number generator
         '''
-        self.__N_rng = randomgen.Generator(randomgen.Xoroshiro128(seed, mode='sequence'))
+        self.__N_rng = np.random.Generator(randomgen.Xoroshiro128(seed, mode='sequence'))
         
         self.__N_normals = N_normals
         self.__N_index = np.inf
