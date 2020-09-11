@@ -89,6 +89,11 @@ class ParticleType:
         return self.process.positions
 
     @property
+    def number_of_particles(self):
+        '''Current number of particles'''
+        return self.process._N_active
+
+    @property
     def time(self):
         '''Current time'''
         return self.process.time
