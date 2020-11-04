@@ -27,7 +27,8 @@ class AngularNoiseProcessWithAngularDrift(Process):
                  speed,
                  drift_function=None,
                  force=None,
-                 seed=None):
+                 seed=None,
+                 alignment_when_reflecting=False):
         '''Initialize the process
 
         Parameters
@@ -70,6 +71,8 @@ class AngularNoiseProcessWithAngularDrift(Process):
         self.__drift_function = drift_function
         self.__speeddt = speed*time_step
 
+        self.__alignment_when_reflecting = alignment_when_reflecting
+        
         self.time = 0
         
     @property
@@ -84,6 +87,7 @@ class AngularNoiseProcessWithAngularDrift(Process):
             'drift_strength': self.__drift_strength,
             'drift_function': str(self.__drift_function),
             'speed': self.__speed,
+            'alignment_when_reflecting': self.__alignment_when_reflecting,
         })
         return ret
         
@@ -122,8 +126,12 @@ class AngularNoiseProcessWithAngularDrift(Process):
 
         # Calculate the velocity vectors from the angles (norm = 1)
         velocities = np.exp(1j*(self._angle[to_reflect_a])).view(np.float).reshape(-1, 2)
-        # The new velocity is the reflection of the old velocity at the boundary
-        velocities -= 2*(velocities*normal_vectors).sum(axis=1)[:, np.newaxis]*normal_vectors
+        if not self.__alignment_when_reflecting:
+            # The new velocity is the reflection of the old velocity at the boundary
+            velocities -= 2*(velocities*normal_vectors).sum(axis=1)[:, np.newaxis]*normal_vectors
+        else:
+            # The new velocity has no component normal to the boundary
+            velocities -= (velocities*normal_vectors).sum(axis=1)[:, np.newaxis]*normal_vectors
         # Update the angle
         self._angle[to_reflect_a] = np.arctan2(*velocities.T[::-1])
         # We could have operated on the angles alone (without calculating the velocity vector),
